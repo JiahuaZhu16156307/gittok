@@ -25,6 +25,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="dark">
+      <head>
+        <script defer src="https://cloud.umami.is/script.js" data-website-id="ee7cfa9d-0b32-4803-ab60-3ca70d8a822c"></script>
+      </head>
       <body className="font-sans antialiased bg-black text-white">
         <SessionProvider>
           <NetworkSyncProvider>
