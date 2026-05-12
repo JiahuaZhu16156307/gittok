@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { RepoCard } from "@/lib/types";
 import { InteractionBar } from "./InteractionBar";
 import { useEnrichment } from "@/hooks/useEnrichment";
@@ -43,6 +44,23 @@ function formatCount(count: number): string {
     return v < 10 ? `${v.toFixed(1).replace(/\.0$/, "")}K` : `${Math.round(v)}K`;
   }
   return count.toString();
+}
+
+/** Format a date to relative time (e.g., "3天前", "2小时前") or absolute date */
+function formatDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = Date.now();
+  const diff = now - d.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "刚刚";
+  if (minutes < 60) return `${minutes}分钟前`;
+  if (hours < 24) return `${hours}小时前`;
+  if (days < 30) return `${days}天前`;
+  if (days < 365) return `${Math.floor(days / 30)}个月前`;
+  return `${Math.floor(days / 365)}年前`;
 }
 
 interface RepoCardProps {
@@ -111,106 +129,148 @@ export function RepoCardComponent({ repo, recommendationReason, onNotInterested 
         </div>
       )}
 
-      {/* === Middle-bottom: Info + Actions (top-aligned) === */}
-      <div className="absolute top-[45%] bottom-[72px] left-0 right-0 z-10 px-4 flex items-start gap-3">
-        {/* Left: Info area */}
-        <div className="flex-1 min-w-0 space-y-1.5 [text-shadow:0_1px_3px_rgb(0_0_0_/_0.8)]">
-          {/* Author */}
-          <a
-            href={`https://github.com/${repo.owner}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2.5 hover:opacity-80 transition-opacity"
-          >
-            <img
-              src={`https://github.com/${repo.owner}.png?size=80`}
-              alt={repo.owner}
-              className="w-10 h-10 rounded-full ring-2 ring-white/20"
-            />
-            <span className="text-[15px] font-semibold text-white/90">@{repo.owner}</span>
-          </a>
+      {/* === Fixed identity + protected reading area === */}
+      <div className="absolute left-4 right-[5.25rem] top-[45%] bottom-[calc(var(--feed-bottom-clearance)+0.75rem)] z-10 flex min-h-0 flex-col [text-shadow:0_1px_3px_rgb(0_0_0_/_0.8)]">
+        {/* Author */}
+        <a
+          href={`https://github.com/${repo.owner}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-2.5 hover:opacity-80 transition-opacity"
+        >
+          <img
+            src={`https://github.com/${repo.owner}.png?size=80`}
+            alt={repo.owner}
+            className="w-10 h-10 rounded-full ring-2 ring-white/20"
+          />
+          <span className="text-[15px] font-semibold text-white/90">@{repo.owner}</span>
+        </a>
 
-          {/* Repo name */}
-          <a
-            href={`https://github.com/${repo.fullName}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block hover:opacity-80 transition-opacity"
-          >
-            <h2 className="text-xl font-bold text-white leading-snug tracking-tight">
-              {repo.name}
-            </h2>
-          </a>
+        {/* Repo name */}
+        <a
+          href={`https://github.com/${repo.fullName}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 block hover:opacity-80 transition-opacity"
+        >
+          <h2 className="text-xl font-bold text-white leading-snug tracking-tight">
+            {repo.name}
+          </h2>
+        </a>
 
-          {/* Summary — with expand button, scrollable when expanded */}
-          {displaySummary && (
-            <SummaryBlock text={displaySummary} />
-          )}
+        {/* Update date — use lastCommitAt (GitHub pushed_at) to match the "Updated" timestamp on github.com */}
+        <div className="mt-1 flex items-center gap-2 text-[11px] text-white/50">
+          <span>🕐 更新于 {formatDate(repo.lastCommitAt)}</span>
         </div>
 
-        {/* Right: Interaction bar */}
-        <div className="shrink-0">
-          <InteractionBar
-            repoId={repo.id}
-            repoFullName={repo.fullName}
-            owner={repo.owner}
-            starCount={repo.starCount}
-            ownerAvatarUrl={`https://github.com/${repo.owner}.png?size=96`}
-            onNotInterested={onNotInterested}
-          />
+        <div className="relative mt-2 min-h-0 flex-1">
+          <ProtectedContentScroll>
+            <div className="flex min-h-full flex-col gap-3 pb-1">
+              {displaySummary && (
+                <p className="text-[13px] text-white/90 leading-relaxed whitespace-pre-wrap">
+                  {displaySummary}
+                </p>
+              )}
+
+              <div className="mt-auto space-y-2 pt-2">
+                {repo.topics.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {repo.topics.map((topic) => (
+                      <span
+                        key={topic}
+                        className="px-2.5 py-1 rounded-md bg-white/8 text-[11px] font-medium text-white/80 border border-white/10 whitespace-nowrap"
+                      >
+                        #{topic}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 text-[11px] text-white/55">
+                  {repo.language && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: languageColor }} />
+                      <span>{repo.language}</span>
+                    </span>
+                  )}
+                  <span>🍴 {formatCount(repo.forkCount)}</span>
+                </div>
+              </div>
+            </div>
+          </ProtectedContentScroll>
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-4 bg-gradient-to-b from-black/35 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/80 to-transparent" />
         </div>
       </div>
 
-      {/* === Fixed bottom strip: Tags + Metadata (above bottom nav) === */}
-      <div className="absolute bottom-16 left-4 right-4 z-10 space-y-1.5 [text-shadow:0_1px_3px_rgb(0_0_0_/_0.8)]">
-        {/* Topics — full text, wrap to 2 rows, scrollable */}
-        {repo.topics.length > 0 && (
-          <div
-            className="flex flex-wrap gap-1.5 max-h-[3.5rem] overflow-y-auto no-scrollbar"
-            onWheel={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
-          >
-            {repo.topics.map((topic) => (
-              <span
-                key={topic}
-                className="px-2.5 py-1 rounded-md bg-white/8 text-[11px] font-medium text-white/80 border border-white/10 whitespace-nowrap"
-              >
-                #{topic}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Metadata */}
-        <div className="flex items-center gap-3 text-[11px] text-white/50">
-          {repo.language && (
-            <span className="flex items-center gap-1">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: languageColor }} />
-              <span>{repo.language}</span>
-            </span>
-          )}
-          <span>🍴 {formatCount(repo.forkCount)}</span>
-        </div>
+      {/* === Right: fixed action rail, outside the protected reading area === */}
+      <div className="absolute right-4 top-[45%] z-20">
+        <InteractionBar
+          repoId={repo.id}
+          repoFullName={repo.fullName}
+          owner={repo.owner}
+          starCount={repo.starCount}
+          ownerAvatarUrl={`https://github.com/${repo.owner}.png?size=96`}
+          onNotInterested={onNotInterested}
+        />
       </div>
     </article>
   );
 }
 
-/** Summary block — always expanded, scrollable */
-function SummaryBlock({ text }: { text: string }) {
+function canScrollInDirection(element: HTMLElement, deltaY: number): boolean {
+  const maxScrollTop = element.scrollHeight - element.clientHeight;
+  if (maxScrollTop <= 1) return false;
+  if (deltaY > 0) return element.scrollTop < maxScrollTop - 1;
+  if (deltaY < 0) return element.scrollTop > 1;
+  return false;
+}
+
+function ProtectedContentScroll({ children }: { children: React.ReactNode }) {
+  const touchStartYRef = useRef<number | null>(null);
+
   return (
     <div
-      className="max-h-[30vh] overflow-y-auto no-scrollbar"
-      onWheel={(e) => e.stopPropagation()}
-      onTouchStart={(e) => e.stopPropagation()}
-      onTouchMove={(e) => e.stopPropagation()}
-      onTouchEnd={(e) => e.stopPropagation()}
+      className="h-full overflow-y-auto no-scrollbar pr-1 overscroll-y-auto touch-pan-y"
+      role="region"
+      aria-label="仓库详情"
+      tabIndex={0}
+      onWheel={(e) => {
+        if (canScrollInDirection(e.currentTarget, e.deltaY)) {
+          e.stopPropagation();
+        }
+      }}
+      onTouchStart={(e) => {
+        touchStartYRef.current = e.touches[0]?.clientY ?? null;
+        e.stopPropagation();
+      }}
+      onTouchMove={(e) => {
+        const startY = touchStartYRef.current;
+        const currentY = e.touches[0]?.clientY;
+        if (startY === null || currentY === undefined) return;
+
+        const deltaY = startY - currentY;
+        if (canScrollInDirection(e.currentTarget, deltaY)) {
+          e.stopPropagation();
+        }
+      }}
+      onTouchEnd={() => {
+        touchStartYRef.current = null;
+      }}
+      onKeyDown={(e) => {
+        const keyDelta: Record<string, number> = {
+          ArrowDown: 40,
+          PageDown: e.currentTarget.clientHeight,
+          ArrowUp: -40,
+          PageUp: -e.currentTarget.clientHeight,
+        };
+        const deltaY = keyDelta[e.key];
+        if (deltaY !== undefined && canScrollInDirection(e.currentTarget, deltaY)) {
+          e.stopPropagation();
+        }
+      }}
     >
-      <p className="text-[13px] text-white/90 leading-relaxed whitespace-pre-wrap">
-        {text}
-      </p>
+      {children}
     </div>
   );
 }

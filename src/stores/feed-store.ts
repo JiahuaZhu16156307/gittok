@@ -4,9 +4,9 @@ import { create } from "zustand";
 import type { RepoCard } from "@/lib/types/repo";
 import type { FeedResponse } from "@/lib/types/feed";
 
-const BATCH_SIZE = 100;
-const PREFETCH_THRESHOLD = 50;
-const MAX_CACHE_SIZE = 300;
+const BATCH_SIZE = 10;
+const PREFETCH_THRESHOLD = 4;
+const MAX_CACHE_SIZE = 60;
 
 export interface FeedState {
   cards: RepoCard[];

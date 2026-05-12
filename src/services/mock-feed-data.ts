@@ -7,9 +7,13 @@
 
 import type { RepoCard } from '@/lib/types';
 
+function daysAgo(days: number): Date {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
 /** Generate mock RepoCard data for development */
 export function getMockRepoCards(): RepoCard[] {
-  return [
+  const cards: RepoCard[] = [
     {
       id: 'mock-react',
       fullName: 'facebook/react',
@@ -402,6 +406,16 @@ export function getMockRepoCards(): RepoCard[] {
       updatedAt: new Date('2024-12-02'),
     },
   ];
+
+  return cards.map((card, index) => {
+    const mockUpdatedAt = daysAgo(index === 0 ? 5 : (index % 14) + 1);
+
+    return {
+      ...card,
+      lastCommitAt: mockUpdatedAt,
+      updatedAt: mockUpdatedAt,
+    };
+  });
 }
 
 /**
