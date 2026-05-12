@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  githubId    String   @unique
+  name        String
+  avatarUrl   String
+  accessToken String   // 加密存储
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profile      UserProfile?
+  interactions InteractionEvent[]
+  favorites    Favorite[]
+  follows      Follow[]
+  settings     UserSettings?
+}
+
+model UserProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+
+  // 特征权重 (JSON 存储，key 为特征值，value 为权重)
+  languageWeights  Json     @default("{}")  // { "Rust": 0.8, "TypeScript": 0.6 }
+  topicWeights     Json     @default("{}")  // { "web": 0.7, "cli": 0.5 }
+  starRangeWeights Json     @default("{}")  // { "100-1000": 0.6, "1000+": 0.8 }
+  authorWeights    Json     @default("{}")  // { "user123": 0.9 }
+
+  totalInteractions Int      @default(0)
+  lastUpdatedAt     DateTime @updatedAt
+}
+
+model InteractionEvent {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id])
+  repoId       String
+  repoFullName String
+  type         InteractionType
+  dwellTimeMs  Int?
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  syncedAt     DateTime?
+
+  @@index([userId, createdAt])
+  @@index([userId, repoId, type])
+}
+
+model Favorite {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  repoId       String
+  repoFullName String
+  repoData     Json     // 快照：名称、描述、语言、Star 等
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, repoId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Follow {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  authorId   String   // GitHub 用户名
+  authorData Json     // 快照：头像、名称等
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, authorId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model UserSettings {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+  blockForks       Boolean  @default(false)
+  blockedLanguages String[] @default([])
+  updatedAt        DateTime @updatedAt
+}
+
+model NegativeFeedbackRecord {
+  id          String    @id @default(cuid())
+  userId      String
+  targetType  String    // 'repo' | 'author' | 'topic'
+  targetValue String
+  count       Int       @default(1)
+  lastAt      DateTime  @default(now())
+  expiresAt   DateTime?
+
+  @@unique([userId, targetType, targetValue])
+  @@index([userId, expiresAt])
+}
+
+enum InteractionType {
+  like
+  unlike
+  favorite
+  unfavorite
+  follow
+  unfollow
+  not_interested
+  view
+  quick_skip
+  open_external
+}

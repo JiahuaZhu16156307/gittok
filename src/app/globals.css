@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #ffffff;
+    --foreground: #0a0a0a;
+    --card: #ffffff;
+    --card-foreground: #0a0a0a;
+    --primary: #171717;
+    --primary-foreground: #fafafa;
+    --secondary: #f5f5f5;
+    --secondary-foreground: #171717;
+    --muted: #f5f5f5;
+    --muted-foreground: #737373;
+    --accent: #f5f5f5;
+    --accent-foreground: #171717;
+    --destructive: #ef4444;
+    --destructive-foreground: #fafafa;
+    --border: #e5e5e5;
+    --ring: #171717;
+    --radius: 0.75rem;
+    --bottom-nav-height: 3.5rem;
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --feed-bottom-clearance: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
+  }
+
+  .dark {
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --card: #171717;
+    --card-foreground: #fafafa;
+    --primary: #fafafa;
+    --primary-foreground: #171717;
+    --secondary: #262626;
+    --secondary-foreground: #fafafa;
+    --muted: #262626;
+    --muted-foreground: #a3a3a3;
+    --accent: #262626;
+    --accent-foreground: #fafafa;
+    --destructive: #dc2626;
+    --destructive-foreground: #fafafa;
+    --border: #262626;
+    --ring: #d4d4d4;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-border bg-card text-card-foreground shadow-sm;
+  }
+
+  .card-header {
+    @apply flex flex-col space-y-1.5 p-6;
+  }
+
+  .card-content {
+    @apply p-6 pt-0;
+  }
+
+  .card-footer {
+    @apply flex items-center p-6 pt-0;
+  }
+
+  .repo-card {
+    @apply h-screen w-full snap-start flex flex-col justify-between p-6 bg-card overflow-hidden;
+  }
+
+  .interaction-btn {
+    @apply flex items-center justify-center w-12 h-12 rounded-full bg-secondary text-secondary-foreground transition-colors hover:bg-accent active:scale-95;
+  }
+
+  .interaction-btn-active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-secondary text-secondary-foreground;
+  }
+
+  .feed-container {
+    @apply h-screen w-full overflow-y-scroll snap-y snap-mandatory;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar across browsers (used by the feed scroll viewport) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-area-pb {
+    padding-bottom: var(--safe-area-bottom);
+  }
+}
