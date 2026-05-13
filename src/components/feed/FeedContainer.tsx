@@ -8,6 +8,7 @@ import { buildRepoInteractionMetadata } from "@/lib/utils/repo-interaction-metad
 import { classifyDwellTime } from "@/lib/utils/dwell-time-classifier";
 
 const TAIL_PREFETCH_CARDS = 50;
+const ENRICH_PREFETCH_RADIUS = 5;
 
 /**
  * FeedContainer manages the TikTok-style vertical swipe feed using
@@ -262,7 +263,7 @@ export function FeedContainer() {
         >
           <RepoCardComponent
             repo={card}
-            isActive={Math.abs(index - currentIndex) <= 1}
+            isActive={Math.abs(index - currentIndex) <= ENRICH_PREFETCH_RADIUS}
             onNotInterested={goNext}
           />
         </div>

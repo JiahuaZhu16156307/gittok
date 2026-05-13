@@ -10,6 +10,7 @@ import type { RepoCard } from "@/lib/types";
 
 const TRENDING_URL = "https://github.com/trending?since=daily";
 const TRENDING_TIMEOUT_MS = 3500;
+const SEARCH_TIMEOUT_MS = 2500;
 const TRENDING_CACHE_TTL_MS = 30 * 60 * 1000;
 
 export const dynamic = "force-dynamic";
@@ -42,6 +43,97 @@ async function fetchTrendingHTML(): Promise<string> {
   }
 }
 
+async function withAbortableTimeout<T>(
+  work: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await work(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchTrendingFromSearch(): Promise<RepoCard[]> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const token = process.env.GITHUB_TOKEN || process.env.GITHUB_PAT;
+  const headers: Record<string, string> = {
+    "Accept": "application/vnd.github.v3+json",
+    "User-Agent": "GitTok",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const query = `stars:>1000 pushed:>=${since} archived:false fork:false`;
+  const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=25`;
+  const res = await withAbortableTimeout(
+    (signal) => fetch(url, { headers, signal }),
+    SEARCH_TIMEOUT_MS
+  );
+
+  if (!res.ok) {
+    throw new Error(`GitHub Search returned ${res.status}`);
+  }
+
+  const data = await res.json() as {
+    items?: Array<{
+      id: number;
+      full_name: string;
+      name: string;
+      owner: { login: string };
+      description: string | null;
+      language: string | null;
+      stargazers_count: number;
+      forks_count: number;
+      topics?: string[];
+      archived: boolean;
+      fork: boolean;
+      pushed_at: string;
+      default_branch: string;
+      updated_at: string;
+    }>;
+  };
+
+  const now = new Date();
+  return (data.items ?? []).map((item) => ({
+    id: `trending-search-${item.id}`,
+    fullName: item.full_name,
+    owner: item.owner.login,
+    name: item.name,
+    description: item.description ?? "",
+    language: item.language,
+    starCount: item.stargazers_count,
+    forkCount: item.forks_count,
+    topics: item.topics ?? [],
+    isArchived: item.archived,
+    isFork: item.fork,
+    readmeSummary: `近 24 小时 GitHub 活跃热门仓库，当前 ${item.stargazers_count.toLocaleString()} stars。`,
+    lastCommitAt: new Date(item.pushed_at || now),
+    defaultBranch: item.default_branch || "main",
+    updatedAt: new Date(item.updated_at || now),
+  }));
+}
+
+async function firstNonEmptyCards(source: Promise<RepoCard[]>): Promise<RepoCard[]> {
+  const cards = await source;
+  if (cards.length === 0) {
+    throw new Error("Trending source returned no cards");
+  }
+  return cards;
+}
+
+async function fetchTrendingCards(): Promise<RepoCard[]> {
+  return Promise.any([
+    firstNonEmptyCards(fetchTrendingHTML().then(parseTrendingHTML)),
+    firstNonEmptyCards(fetchTrendingFromSearch()),
+  ]);
+}
+
 function getFreshCachedTrending(): RepoCard[] | null {
   const cached = globalForTrending.trendingCache;
   if (!cached) return null;
@@ -51,8 +143,16 @@ function getFreshCachedTrending(): RepoCard[] | null {
 
 export async function GET(_request: NextRequest) {
   try {
-    const html = await fetchTrendingHTML();
-    const cards = parseTrendingHTML(html);
+    const cached = getFreshCachedTrending();
+    if (cached) {
+      return NextResponse.json({
+        cards: cached,
+        hasMore: false,
+        cached: true,
+      });
+    }
+
+    const cards = await fetchTrendingCards();
     globalForTrending.trendingCache = { cards, cachedAt: Date.now() };
 
     return NextResponse.json({

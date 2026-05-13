@@ -65,6 +65,10 @@ function buildGeneratedSummary(repo: RepoCard): string {
   ].filter(Boolean).join("\n");
 }
 
+function buildUnavailableSummary(repo: RepoCard): string {
+  return `${repo.fullName} 的 README 摘要暂时没有生成成功，可能是 GitHub API 限流、网络超时或翻译服务不可用。GitTok 会稍后自动重试生成。`;
+}
+
 /** Format a date to relative time (e.g., "3天前", "2小时前") or absolute date */
 function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
@@ -101,15 +105,24 @@ export function RepoCardComponent({
     ? LANGUAGE_COLORS[repo.language] ?? DEFAULT_COLOR
     : DEFAULT_COLOR;
 
-  const { imageUrl, summary: cnSummary } = useEnrichment(
+  const {
+    imageUrl,
+    summary: cnSummary,
+    status: enrichmentStatus,
+    isLoading: isEnrichmentLoading,
+  } = useEnrichment(
     repo.owner,
     repo.name,
     isActive
   );
   const generatedSummary = buildGeneratedSummary(repo);
-  const displaySummary = hasChinese(cnSummary)
+  const displaySummary = (enrichmentStatus === "ready" || !enrichmentStatus) && hasChinese(cnSummary)
     ? cnSummary
-    : generatedSummary;
+    : enrichmentStatus === "unavailable"
+      ? buildUnavailableSummary(repo)
+    : isEnrichmentLoading
+      ? generatedSummary
+      : generatedSummary;
   const interactionMetadata = buildRepoInteractionMetadata(repo);
   const displayImageUrl =
     imageUrl && !failedImageUrls.has(imageUrl) ? imageUrl : null;

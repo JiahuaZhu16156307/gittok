@@ -234,15 +234,21 @@ try {
   const feedContainerSource = fs.readFileSync("src/components/feed/FeedContainer.tsx", "utf8");
   const feedStoreSource = fs.readFileSync("src/stores/feed-store.ts", "utf8");
   const feedRouteSource = fs.readFileSync("src/app/api/feed/route.ts", "utf8");
+  const enrichRouteSource = fs.readFileSync("src/app/api/feed/enrich/route.ts", "utf8");
+  const trendingRouteSource = fs.readFileSync("src/app/api/feed/trending/route.ts", "utf8");
   record(
     feedContainerSource.includes("TAIL_PREFETCH_CARDS") &&
       feedContainerSource.includes("const TAIL_PREFETCH_CARDS = 50") &&
+      feedContainerSource.includes("const ENRICH_PREFETCH_RADIUS = 5") &&
       feedContainerSource.includes("onScroll={handleFeedScroll}") &&
       feedContainerSource.includes("currentIndex >= cards.length - 1") &&
       feedContainerSource.includes("正在加载更多") &&
       feedStoreSource.includes("const BATCH_SIZE = 100") &&
       feedStoreSource.includes("const PREFETCH_THRESHOLD = 50") &&
-      feedRouteSource.includes("const MAX_LIMIT = 100"),
+      feedRouteSource.includes("const MAX_LIMIT = 100") &&
+      enrichRouteSource.includes("const SUMMARY_MAX_LENGTH = 450") &&
+      trendingRouteSource.includes("fetchTrendingFromSearch") &&
+      trendingRouteSource.includes("Promise.any"),
     "recommendation feed uses large buffered tail loading"
   );
 } catch (error) {
@@ -250,9 +256,36 @@ try {
 }
 
 try {
+  const { res, ms } = await fetchWithTimeout(
+    `${baseUrl}/api/feed/trending`,
+    {},
+    5000
+  );
+  const data = await res.json();
+  record(
+    res.ok && Array.isArray(data.cards) && data.cards.length > 0 && ms < 5000,
+    "today trending feed responds with cards",
+    `${res.status}, ${ms}ms, cards=${data.cards?.length ?? 0}`
+  );
+} catch (error) {
+  record(false, "today trending feed responds with cards", error.message);
+}
+
+try {
   const repoCardSource = fs.readFileSync("src/components/feed/RepoCard.tsx", "utf8");
+  const hookSource = fs.readFileSync("src/hooks/useEnrichment.ts", "utf8");
+  const enrichRouteSource = fs.readFileSync("src/app/api/feed/enrich/route.ts", "utf8");
   record(
     repoCardSource.includes("buildGeneratedSummary(repo)") &&
+      repoCardSource.includes("buildUnavailableSummary(repo)") &&
+      hookSource.includes("buildClientUnavailableSummary") &&
+      hookSource.includes("MAX_BACKGROUND_RETRIES") &&
+      enrichRouteSource.includes("buildSummaryGenerationFailed") &&
+      enrichRouteSource.includes("buildPendingSummary") &&
+      enrichRouteSource.includes("INITIAL_RESPONSE_WAIT_MS") &&
+      enrichRouteSource.includes("UNAVAILABLE_CACHE_TTL_MS") &&
+      enrichRouteSource.includes("!cached.result.summary") &&
+      enrichRouteSource.includes("__gittokEnrichPending") &&
       !repoCardSource.includes('isEnrichmentLoading ? "\\u6b63\\u5728\\u751f\\u6210 README \\u6458\\u8981..." : ""'),
     "repo card keeps a non-empty Chinese summary fallback"
   );
@@ -288,6 +321,39 @@ try {
   );
 } catch (error) {
   record(false, "README enrichment returns Chinese", error.message);
+}
+
+try {
+  const knownProblemRepos = [
+    ["honojs", "hono"],
+    ["bigskysoftware", "htmx"],
+    ["biomejs", "biome"],
+  ];
+  const results = [];
+  for (const [owner, repo] of knownProblemRepos) {
+    const { res, ms } = await fetchWithTimeout(
+      `${baseUrl}/api/feed/enrich?owner=${owner}&repo=${repo}`,
+      {},
+      9000
+    );
+    const data = await res.json();
+    results.push({
+      fullName: `${owner}/${repo}`,
+      ok: res.ok && /[\u4e00-\u9fff]/.test(data.summary || "") && ms < 9000,
+      status: res.status,
+      ms,
+      hasSummary: Boolean(data.summary),
+    });
+  }
+  record(
+    results.every((result) => result.ok),
+    "README enrichment does not get stuck on previously empty summaries",
+    results
+      .map((result) => `${result.fullName}:${result.status}/${result.ms}ms/summary=${result.hasSummary}`)
+      .join(", ")
+  );
+} catch (error) {
+  record(false, "README enrichment does not get stuck on previously empty summaries", error.message);
 }
 
 try {

@@ -56,6 +56,41 @@ function firstDisplayableImage(candidates: string[]): string | null {
   return null;
 }
 
+function isNoiseLine(trimmed: string): boolean {
+  if (!trimmed) return false;
+  if (trimmed.startsWith('![')) return true;
+  if (trimmed.startsWith('[!')) return true;
+  if (trimmed.match(/^\[!\[.*\]\(.*\)\]\(.*\)$/)) return true;
+  if (trimmed.match(/^\[[^\]]+\]:\s*\S+/)) return true;
+  if (trimmed.startsWith('<!--') || trimmed.startsWith('-->')) return true;
+  if (trimmed.startsWith('<') && trimmed.endsWith('>')) return true;
+  if (trimmed.startsWith('|') && trimmed.endsWith('|')) return true;
+  if (trimmed.startsWith('---') || trimmed.startsWith('***') || trimmed.startsWith('___')) return true;
+  if (trimmed.startsWith('```')) return true;
+
+  const linkCount = (trimmed.match(/\]\(/g) || []).length;
+  if (linkCount >= 2) return true;
+
+  const badgeHostCount = BADGE_HOSTS.filter((host) =>
+    trimmed.toLowerCase().includes(host)
+  ).length;
+  return badgeHostCount > 0;
+}
+
+function cleanSummaryLine(trimmed: string): string {
+  return trimmed
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '') // images
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [text](url) -> text
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '') // HTML tags
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&mdash;/g, '—')
+    .replace(/&amp;/g, '&')
+    .replace(/[*_`~]+/g, '') // markdown emphasis/code markers
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Extract the first displayable image URL from markdown content */
 export function extractFirstImage(markdown: string): string | null {
   const markdownImages = markdown.matchAll(/!\[[^\]]*]\((https?:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/g);
@@ -79,9 +114,29 @@ export function extractSummary(markdown: string, maxLength: number = 2000): stri
   const summaryLines: string[] = [];
   let foundFirstContent = false;
   let headingCount = 0;
+  let insideHtmlComment = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
+
+    if (insideHtmlComment) {
+      if (trimmed.includes('-->')) {
+        insideHtmlComment = false;
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('<!--')) {
+      if (!trimmed.includes('-->')) {
+        insideHtmlComment = true;
+      }
+      continue;
+    }
+
+    if (trimmed.startsWith('```')) {
+      if (foundFirstContent) break;
+      continue;
+    }
 
     // Count headings — stop at the second major heading (## or #)
     if (trimmed.match(/^#{1,2}\s/)) {
@@ -90,57 +145,22 @@ export function extractSummary(markdown: string, maxLength: number = 2000): stri
       continue; // Skip the heading line itself
     }
 
-    // Skip badges, images at the top, HTML blocks
-    if (!foundFirstContent) {
-      if (!trimmed) continue;
-      if (trimmed.startsWith('![')) continue;
-      if (trimmed.startsWith('<img')) continue;
-      if (trimmed.startsWith('<p') && trimmed.includes('<img')) continue;
-      if (trimmed.startsWith('[!')) continue;
-      if (trimmed.match(/^\[!\[.*\]\(.*\)\]\(.*\)$/)) continue; // badge images
-      if (trimmed.startsWith('<div') || trimmed.startsWith('</div')) continue;
-      if (trimmed.startsWith('<a ') || trimmed.startsWith('</a>')) continue;
-      if (trimmed.startsWith('---') || trimmed.startsWith('***')) continue;
-      if (trimmed.startsWith('```')) continue;
-      if (trimmed.startsWith('|') && trimmed.endsWith('|')) continue; // tables
-      if (trimmed.startsWith('<table') || trimmed.startsWith('<tr') || trimmed.startsWith('<td')) continue;
-      if (trimmed.startsWith('</table') || trimmed.startsWith('</tr') || trimmed.startsWith('</td')) continue;
-      // Skip lines that are mostly links/badges (contain many ]( patterns)
-      if ((trimmed.match(/\]\(/g) || []).length >= 2) continue;
-    }
-
-    // Once we find real text, start collecting everything
-    if (trimmed.length > 5) {
-      foundFirstContent = true;
-    }
-
     if (foundFirstContent) {
       // Keep empty lines as paragraph breaks
       if (!trimmed) {
         if (summaryLines.length > 0) summaryLines.push('');
         continue;
       }
-
-      // Stop at section dividers
-      if (trimmed.startsWith('---') || trimmed.startsWith('***')) break;
-      if (trimmed.startsWith('```')) break;
-      // Stop at tables
-      if (trimmed.startsWith('|') && trimmed.endsWith('|')) break;
-
-      // Strip markdown formatting but keep the text
-      const clean = trimmed
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [text](url) → text
-        .replace(/[*_`~]+/g, '') // bold/italic/code markers
-        .replace(/<[^>]+>/g, '') // HTML tags
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      // Skip very short lines (likely leftover badge text or separators)
-      if (clean && clean.length > 20) {
-        summaryLines.push(clean);
-        if (summaryLines.join('\n').length >= maxLength) break;
-      }
     }
+
+    if (isNoiseLine(trimmed)) continue;
+
+    const clean = cleanSummaryLine(trimmed);
+    if (!clean || clean.length <= 20) continue;
+
+    foundFirstContent = true;
+    summaryLines.push(clean);
+    if (summaryLines.join('\n').length >= maxLength) break;
   }
 
   // Trim trailing empty lines
