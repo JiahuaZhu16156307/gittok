@@ -15,9 +15,9 @@
 
 ## 产品截图
 
-| 桌面端推荐流 | 移动端推荐流 |
+| 移动端推荐流 | 桌面端推荐流 |
 | --- | --- |
-| ![GitTok 桌面端推荐流](docs/images/gittok-feed-desktop.png) | <img src="docs/images/gittok-feed-mobile.png" alt="GitTok 移动端推荐流" width="260"> |
+| <img src="docs/images/gittok-feed-mobile.png" alt="GitTok 移动端推荐流" width="260"> | ![GitTok 桌面端推荐流](docs/images/gittok-feed-desktop.png) |
 
 > 像刷短视频一样发现 GitHub 优质开源项目。
 
