@@ -286,18 +286,25 @@ function canScrollInDirection(element: HTMLElement, deltaY: number): boolean {
   return false;
 }
 
+function hasScrollableOverflow(element: HTMLElement): boolean {
+  return element.scrollHeight - element.clientHeight > 1;
+}
+
 function ProtectedContentScroll({ children }: { children: React.ReactNode }) {
   const touchStartYRef = useRef<number | null>(null);
 
   return (
     <div
-      className="h-full overflow-y-auto no-scrollbar pr-1 overscroll-y-auto touch-pan-y"
+      className="h-full overflow-y-auto no-scrollbar pr-1 overscroll-y-contain touch-pan-y"
       role="region"
       aria-label="仓库详情"
       tabIndex={0}
       onWheel={(e) => {
-        if (canScrollInDirection(e.currentTarget, e.deltaY)) {
-          e.stopPropagation();
+        if (!hasScrollableOverflow(e.currentTarget)) return;
+
+        e.stopPropagation();
+        if (!canScrollInDirection(e.currentTarget, e.deltaY)) {
+          e.preventDefault();
         }
       }}
       onTouchStart={(e) => {
@@ -310,8 +317,11 @@ function ProtectedContentScroll({ children }: { children: React.ReactNode }) {
         if (startY === null || currentY === undefined) return;
 
         const deltaY = startY - currentY;
-        if (canScrollInDirection(e.currentTarget, deltaY)) {
-          e.stopPropagation();
+        if (!hasScrollableOverflow(e.currentTarget)) return;
+
+        e.stopPropagation();
+        if (!canScrollInDirection(e.currentTarget, deltaY)) {
+          e.preventDefault();
         }
       }}
       onTouchEnd={() => {
@@ -325,8 +335,11 @@ function ProtectedContentScroll({ children }: { children: React.ReactNode }) {
           PageUp: -e.currentTarget.clientHeight,
         };
         const deltaY = keyDelta[e.key];
-        if (deltaY !== undefined && canScrollInDirection(e.currentTarget, deltaY)) {
+        if (deltaY !== undefined && hasScrollableOverflow(e.currentTarget)) {
           e.stopPropagation();
+          if (!canScrollInDirection(e.currentTarget, deltaY)) {
+            e.preventDefault();
+          }
         }
       }}
     >

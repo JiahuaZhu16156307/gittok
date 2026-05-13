@@ -261,6 +261,20 @@ try {
 }
 
 try {
+  const repoCardSource = fs.readFileSync("src/components/feed/RepoCard.tsx", "utf8");
+  record(
+    repoCardSource.includes("ProtectedContentScroll") &&
+      repoCardSource.includes("overscroll-y-contain") &&
+      repoCardSource.includes("hasScrollableOverflow") &&
+      repoCardSource.includes("e.stopPropagation()") &&
+      repoCardSource.includes("e.preventDefault()"),
+    "repo detail text scroll is protected from accidental feed paging"
+  );
+} catch (error) {
+  record(false, "repo detail text scroll is protected from accidental feed paging", error.message);
+}
+
+try {
   const { res, ms } = await fetchWithTimeout(
     `${baseUrl}/api/feed/enrich?owner=facebook&repo=react`,
     {},
