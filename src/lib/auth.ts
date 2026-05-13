@@ -12,41 +12,10 @@ export const authOptions: NextAuthOptions = {
       },
       authorization: {
         params: {
-          // public_repo: needed for starring repos
-          // user:follow: needed for following/unfollowing users
-          scope: "public_repo user:follow",
-        },
-      },
-      // Custom token exchange — NextAuth's built-in openid-client doesn't
-      // handle GitHub App responses correctly (returns "no access token")
-      token: {
-        url: "https://github.com/login/oauth/access_token",
-        async request(context) {
-          const { params, provider } = context;
-          const res = await fetch("https://github.com/login/oauth/access_token", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-            },
-            body: JSON.stringify({
-              client_id: provider.clientId,
-              client_secret: provider.clientSecret,
-              code: params.code,
-            }),
-          });
-          const data = await res.json() as Record<string, unknown>;
-          console.log("[NextAuth] Token exchange response:", JSON.stringify(data));
-          if (data.error) {
-            throw new Error(String(data.error_description || data.error));
-          }
-          return {
-            tokens: {
-              access_token: data.access_token as string,
-              token_type: (data.token_type as string) || "bearer",
-              scope: data.scope as string,
-            },
-          };
+          // read:user/user:email: needed for the GitHub profile returned by NextAuth.
+          // public_repo: needed for stars and public GitHub Discussions GraphQL access.
+          // user:follow: needed for following/unfollowing users.
+          scope: "read:user user:email public_repo user:follow",
         },
       },
     }),
@@ -56,7 +25,7 @@ export const authOptions: NextAuthOptions = {
       if (!account || !profile) return false;
 
       // Skip DB operations in mock mode (no database available)
-      if (!process.env.DATABASE_URL || process.env.USE_MOCK_FEED === 'true') {
+      if (!process.env.DATABASE_URL || process.env.USE_MOCK_FEED === "true") {
         return true;
       }
 
@@ -86,7 +55,7 @@ export const authOptions: NextAuthOptions = {
         const githubId = String(profile.sub ?? account.providerAccountId);
 
         // Skip DB lookup in mock mode
-        if (!process.env.DATABASE_URL || process.env.USE_MOCK_FEED === 'true') {
+        if (!process.env.DATABASE_URL || process.env.USE_MOCK_FEED === "true") {
           token.userId = githubId;
           token.githubToken = account.access_token ?? undefined;
           return token;
@@ -130,7 +99,7 @@ export async function getServerSession() {
 }
 
 /**
- * Get the current authenticated user from the session, or null if not authenticated.
+ * Get the current authenticated user from the session, or null if unauthenticated.
  */
 export async function getCurrentUser() {
   const session = await getServerSession();

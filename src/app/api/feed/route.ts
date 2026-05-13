@@ -17,9 +17,9 @@ import { createFeedService } from '@/services/feed-service';
 import type { FeedResponse, RepoCard } from '@/lib/types';
 
 /** Maximum allowed limit per request */
-const MAX_LIMIT = 50;
+const MAX_LIMIT = 100;
 /** Default number of cards per request */
-const DEFAULT_LIMIT = 10;
+const DEFAULT_LIMIT = 100;
 
 /**
  * Determines whether to use mock data instead of the real feed service.
@@ -44,6 +44,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
     const cursorParam = searchParams.get('cursor') ?? undefined;
     const limitParam = searchParams.get('limit');
     const sharedRepoParam = normalizeSharedRepo(searchParams.get('repo'));
+    const seedParam = normalizeSeed(searchParams.get('seed'));
 
     // Validate and parse limit
     let limit = DEFAULT_LIMIT;
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
 
     // Use mock data in development or when DB is unavailable
     if (shouldUseMockData()) {
-      let response = getMockFeedResponse(cursor, limit);
+      let response = getMockFeedResponse(cursor, limit, seedParam);
       if (sharedRepoParam && isFirstPage(cursor)) {
         response = await prependSharedRepo(response, sharedRepoParam);
       }
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
     // Production path: use real feed service
     const user = await getCurrentUser();
     const userId = user?.id ?? 'anonymous';
-    const sessionId = generateSessionId(userId);
+    const sessionId = generateSessionId(userId, seedParam);
     const userToken = (user as any)?.githubToken;
 
     const feedService = await createRealFeedService(userToken);
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
       sessionId,
       cursor,
       limit,
+      seed: seedParam,
     });
     if (sharedRepoParam && isFirstPage(cursor)) {
       response = await prependSharedRepo(response, sharedRepoParam, userToken);
@@ -103,6 +105,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
       { status: 500 }
     );
   }
+}
+
+function normalizeSeed(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  return /^[A-Za-z0-9._:-]{1,80}$/.test(trimmed) ? trimmed : undefined;
 }
 
 function normalizeSharedRepo(value: string | null): string | null {
@@ -155,9 +163,9 @@ async function prependSharedRepo(
  * Generates a session ID for feed deduplication.
  * Uses a date-based approach so the session resets daily.
  */
-function generateSessionId(userId: string): string {
+function generateSessionId(userId: string, seed?: string): string {
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  return `${userId}:${today}`;
+  return `${userId}:${today}:${seed ?? 'default'}`;
 }
 
 /**

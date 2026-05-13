@@ -5,10 +5,40 @@
  * can render without external dependencies (no DB, no GitHub API token).
  */
 
-import type { RepoCard } from '@/lib/types';
+import type { FeedResponse, RepoCard } from '@/lib/types';
 
 function daysAgo(days: number): Date {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
+function hashSeed(seed?: string): number {
+  if (!seed) return 0;
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed: number): () => number {
+  let state = seed || 0x9e3779b9;
+  return () => {
+    state = Math.imul(state ^ (state >>> 15), 1 | state);
+    state ^= state + Math.imul(state ^ (state >>> 7), 61 | state);
+    return ((state ^ (state >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleBySeed<T>(items: T[], seed?: string): T[] {
+  if (!seed) return items;
+  const shuffled = [...items];
+  const random = seededRandom(hashSeed(seed));
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }
 
 /** Generate mock RepoCard data for development */
@@ -422,8 +452,12 @@ export function getMockRepoCards(): RepoCard[] {
  * Get a paginated slice of mock feed data.
  * Simulates cursor-based pagination over the mock dataset.
  */
-export function getMockFeedResponse(cursor?: string, limit: number = 10) {
-  const allCards = getMockRepoCards();
+export function getMockFeedResponse(
+  cursor?: string,
+  limit: number = 10,
+  seed?: string
+): FeedResponse {
+  const baseCards = getMockRepoCards();
   let offset = 0;
 
   if (cursor) {
@@ -437,15 +471,22 @@ export function getMockFeedResponse(cursor?: string, limit: number = 10) {
     }
   }
 
-  const cards = allCards.slice(offset, offset + limit);
-  const hasMore = offset + limit < allCards.length;
-  const nextCursor = hasMore
-    ? JSON.stringify({ offset: offset + limit })
-    : null;
+  const cards = Array.from({ length: limit }, (_, itemOffset) => {
+    const absoluteIndex = offset + itemOffset;
+    const round = Math.floor(absoluteIndex / baseCards.length);
+    const roundCards = shuffleBySeed(baseCards, `${seed ?? 'default'}:${round}`);
+    const card = roundCards[absoluteIndex % roundCards.length];
+
+    return {
+      ...card,
+      id: `${card.id}-round-${round}`,
+    };
+  });
+  const nextCursor = JSON.stringify({ offset: offset + limit });
 
   return {
     cards,
     nextCursor,
-    hasMore,
+    hasMore: true,
   };
 }

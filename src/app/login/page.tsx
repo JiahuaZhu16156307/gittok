@@ -15,9 +15,10 @@ import { Suspense } from "react";
 function LoginContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   const handleLogin = () => {
-    signIn("github", { callbackUrl: "/" });
+    signIn("github", { callbackUrl });
   };
 
   return (

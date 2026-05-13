@@ -2,19 +2,73 @@
  * README markdown parser — extracts first image and summary text.
  */
 
-/** Extract the first image URL from markdown content */
+const IMAGE_EXTENSION_RE = /\.(png|jpe?g|gif|svg|webp|avif)(?:[?#].*)?$/i;
+const IMAGE_HOSTS = [
+  'raw.githubusercontent.com',
+  'user-images.githubusercontent.com',
+  'opengraph.githubassets.com',
+  'repository-images.githubusercontent.com',
+  'camo.githubusercontent.com',
+  'github.com',
+];
+const BADGE_HOSTS = [
+  'img.shields.io',
+  'badge.fury.io',
+  'badgen.net',
+  'github.com/actions',
+  'github.com/badges',
+];
+
+function cleanImageUrl(value: string): string {
+  return value
+    .trim()
+    .replace(/^<|>$/g, '')
+    .replace(/&amp;/g, '&');
+}
+
+function isDisplayableImageUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(cleanImageUrl(value));
+  } catch {
+    return false;
+  }
+
+  const normalized = `${url.hostname}${url.pathname}`.toLowerCase();
+  if (BADGE_HOSTS.some((host) => normalized.includes(host))) {
+    return false;
+  }
+
+  if (IMAGE_EXTENSION_RE.test(url.pathname)) {
+    return true;
+  }
+
+  return IMAGE_HOSTS.some((host) => url.hostname.toLowerCase() === host);
+}
+
+function firstDisplayableImage(candidates: string[]): string | null {
+  for (const candidate of candidates) {
+    const imageUrl = cleanImageUrl(candidate);
+    if (isDisplayableImageUrl(imageUrl)) {
+      return imageUrl;
+    }
+  }
+  return null;
+}
+
+/** Extract the first displayable image URL from markdown content */
 export function extractFirstImage(markdown: string): string | null {
-  // Match ![alt](url)
-  const mdMatch = markdown.match(/!\[.*?\]\((https?:\/\/[^\s)]+)\)/);
-  if (mdMatch) return mdMatch[1];
+  const markdownImages = markdown.matchAll(/!\[[^\]]*]\((https?:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/g);
+  const markdownImage = firstDisplayableImage(Array.from(markdownImages, (match) => match[1]));
+  if (markdownImage) return markdownImage;
 
-  // Match <img src="url">
-  const htmlMatch = markdown.match(/<img[^>]+src=["'](https?:\/\/[^\s"']+)["']/i);
-  if (htmlMatch) return htmlMatch[1];
+  const htmlImages = markdown.matchAll(/<img[^>]+src=["'](https?:\/\/[^\s"']+)["']/gi);
+  const htmlImage = firstDisplayableImage(Array.from(htmlImages, (match) => match[1]));
+  if (htmlImage) return htmlImage;
 
-  // Match raw githubusercontent image URLs on their own line
-  const rawMatch = markdown.match(/(https?:\/\/raw\.githubusercontent\.com\/[^\s)]+\.(png|jpg|jpeg|gif|svg|webp))/i);
-  if (rawMatch) return rawMatch[1];
+  const rawImages = markdown.matchAll(/(https?:\/\/[^\s)]+\.(?:png|jpe?g|gif|svg|webp|avif)(?:[?#][^\s)]*)?)/gi);
+  const rawImage = firstDisplayableImage(Array.from(rawImages, (match) => match[1]));
+  if (rawImage) return rawImage;
 
   return null;
 }

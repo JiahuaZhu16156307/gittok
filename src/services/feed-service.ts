@@ -35,6 +35,7 @@ export interface GetNextBatchParams {
   sessionId: string;
   cursor?: string;
   limit?: number;
+  seed?: string;
 }
 
 /** Dependencies injected into the feed service */
@@ -81,13 +82,23 @@ export function encodeCursor(data: CursorData): string {
   return JSON.stringify(data);
 }
 
+function hashSeed(seed?: string): number {
+  if (!seed) return 0;
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
 /**
  * Creates a feed service instance with the given dependencies.
  */
 export function createFeedService(deps: FeedServiceDeps): IFeedService {
   return {
     async getNextBatch(params: GetNextBatchParams): Promise<FeedResponse> {
-      const { userId, sessionId, cursor, limit = DEFAULT_LIMIT } = params;
+      const { userId, sessionId, cursor, limit = DEFAULT_LIMIT, seed } = params;
 
       // 1. Get user profile
       const profile = (await deps.getProfile(userId)) ?? deps.createDefaultProfile(userId);
@@ -129,7 +140,8 @@ export function createFeedService(deps: FeedServiceDeps): IFeedService {
           'stars:>500 topic:web',
           'stars:>500 topic:cli',
         ];
-        const query = searchQueries[batchNumber % searchQueries.length];
+        const seedOffset = hashSeed(seed) % searchQueries.length;
+        const query = searchQueries[(batchNumber + seedOffset) % searchQueries.length];
         // GitHub Search API page (1-indexed); rotate pages after cycling all queries
         const githubSearchPage = Math.floor(batchNumber / searchQueries.length) + 1;
 

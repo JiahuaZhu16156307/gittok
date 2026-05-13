@@ -7,6 +7,8 @@ import { CardSkeleton } from "./CardSkeleton";
 import { buildRepoInteractionMetadata } from "@/lib/utils/repo-interaction-metadata";
 import { classifyDwellTime } from "@/lib/utils/dwell-time-classifier";
 
+const TAIL_PREFETCH_CARDS = 50;
+
 /**
  * FeedContainer manages the TikTok-style vertical swipe feed using
  * native CSS scroll-snap. Browser-native snapping gives the smoothest,
@@ -45,6 +47,13 @@ export function FeedContainer() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const remaining = cards.length - currentIndex - 1;
+    if (cards.length > 0 && remaining <= TAIL_PREFETCH_CARDS && hasMore && !isLoading) {
+      void fetchNextBatch();
+    }
+  }, [cards.length, currentIndex, fetchNextBatch, hasMore, isLoading]);
 
   const recordDwellEvent = useCallback((index: number, dwellTimeMs: number) => {
     const repo = cards[index];
@@ -146,10 +155,28 @@ export function FeedContainer() {
     }
   }, []);
 
+  const handleFeedScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const el = event.currentTarget;
+      const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distanceToBottom <= el.clientHeight * 8 && hasMore && !isLoading) {
+        void fetchNextBatch();
+      }
+    },
+    [fetchNextBatch, hasMore, isLoading]
+  );
+
   const goNext = useCallback(() => {
-    const target = Math.min(currentIndex + 1, cards.length - 1);
+    if (currentIndex >= cards.length - 1) {
+      if (hasMore && !isLoading) {
+        void fetchNextBatch();
+      }
+      return;
+    }
+
+    const target = currentIndex + 1;
     scrollToIndex(target);
-  }, [currentIndex, cards.length, scrollToIndex]);
+  }, [cards.length, currentIndex, fetchNextBatch, hasMore, isLoading, scrollToIndex]);
 
   const goPrev = useCallback(() => {
     const target = Math.max(currentIndex - 1, 0);
@@ -224,6 +251,7 @@ export function FeedContainer() {
       role="feed"
       aria-label="Repository feed"
       tabIndex={0}
+      onScroll={handleFeedScroll}
     >
       {cards.map((card, index) => (
         <div
@@ -240,6 +268,13 @@ export function FeedContainer() {
         </div>
       ))}
 
+      {cards.length > 0 && hasMore && (
+        <div className="h-full w-full snap-center shrink-0 flex flex-col items-center justify-center bg-zinc-950 gap-3">
+          <div className="h-10 w-10 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+          <div className="text-white/70 text-sm font-medium">正在加载更多...</div>
+        </div>
+      )}
+
       {/* Tail loading indicator — shown when near end of buffer and loading more */}
       {isLoading && cards.length > 0 && (
         <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
@@ -250,16 +285,7 @@ export function FeedContainer() {
         </div>
       )}
 
-      {/* End-of-feed marker — only when server confirms no more data */}
-      {!isLoading && cards.length > 0 && !hasMore && currentIndex >= cards.length - 1 && (
-        <div className="h-full w-full snap-center shrink-0 flex flex-col items-center justify-center bg-zinc-950 gap-3">
-          <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-2xl">
-            🎉
-          </div>
-          <div className="text-white/60 text-sm">没有更多了</div>
-          <div className="text-white/40 text-xs">已经看到底啦，刷新页面重新探索</div>
-        </div>
-      )}
+      {!isLoading && cards.length > 0 && !hasMore && null}
     </div>
   );
 }

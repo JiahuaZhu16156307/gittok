@@ -26,7 +26,7 @@ export interface AuthState {
   isLoading: boolean;
 
   // Actions
-  login: () => void;
+  login: (callbackUrl?: string) => Promise<void>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
@@ -36,10 +36,30 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   isLoading: true,
 
-  login: () => {
-    // Delegates to NextAuth; it will redirect to /api/auth/signin/github
-    // and then to GitHub OAuth.
-    void signIn("github");
+  login: async (callbackUrl) => {
+    const nextUrl =
+      callbackUrl ||
+      (typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+        : "/");
+
+    try {
+      const result = await signIn("github", {
+        callbackUrl: nextUrl,
+        redirect: false,
+      });
+
+      if (result?.url) {
+        window.location.assign(result.url);
+        return;
+      }
+    } catch {
+      // Fall through to the explicit login page fallback below.
+    }
+
+    if (typeof window !== "undefined") {
+      window.location.assign(`/login?callbackUrl=${encodeURIComponent(nextUrl)}`);
+    }
   },
 
   logout: async () => {

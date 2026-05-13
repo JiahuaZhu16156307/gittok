@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
+    "health": "node scripts/health-check.mjs",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",

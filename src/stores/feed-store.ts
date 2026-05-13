@@ -4,14 +4,19 @@ import { create } from "zustand";
 import type { RepoCard } from "@/lib/types/repo";
 import type { FeedResponse } from "@/lib/types/feed";
 
-const BATCH_SIZE = 10;
-const PREFETCH_THRESHOLD = 4;
-const MAX_CACHE_SIZE = 60;
+const BATCH_SIZE = 100;
+const PREFETCH_THRESHOLD = 50;
+const MAX_CACHE_SIZE = 500;
+
+function createFeedSeed(): string {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export interface FeedState {
   cards: RepoCard[];
   currentIndex: number;
   page: number;
+  feedSeed: string;
   hasMore: boolean;
   isLoading: boolean;
   error: string | null;
@@ -61,12 +66,13 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   cards: [],
   currentIndex: 0,
   page: 0,
+  feedSeed: createFeedSeed(),
   hasMore: true,
   isLoading: false,
   error: null,
 
   fetchNextBatch: async () => {
-    const { isLoading, hasMore, page, cards: existingCards } = get();
+    const { isLoading, hasMore, page, cards: existingCards, feedSeed } = get();
 
     // --- LOCK 1: Prevent concurrent or exhausted fetches ---
     if (isLoading || !hasMore) {
@@ -81,6 +87,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       const params = new URLSearchParams({
         limit: String(BATCH_SIZE),
         page: String(nextPage),
+        seed: feedSeed,
       });
       const sharedRepo = nextPage === 1 ? getSharedRepoParam() : null;
       if (sharedRepo) {
@@ -94,9 +101,23 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
       const data: FeedResponse = await response.json();
 
-      // --- LOCK 2: Empty response = no more data ---
+      // --- LOCK 2: Empty response = rotate to a fresh session instead of
+      // showing a dead end in the recommendation feed.
       if (!data.cards || data.cards.length === 0) {
-        set({ hasMore: false, isLoading: false });
+        set({
+          cards: [],
+          currentIndex: 0,
+          page: 0,
+          feedSeed: createFeedSeed(),
+          hasMore: true,
+          isLoading: false,
+        });
+        setTimeout(() => {
+          const s = get();
+          if (!s.isLoading && s.cards.length === 0) {
+            void s.fetchNextBatch();
+          }
+        }, 0);
         return;
       }
 
@@ -108,19 +129,19 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       // — treat as no more data to prevent infinite fetch cycles.
       if (uniqueNewCards.length === 0) {
         set({
-          page: nextPage,
-          hasMore: data.hasMore !== false, // keep trying if server says more available
+          cards: [],
+          currentIndex: 0,
+          page: 0,
+          feedSeed: createFeedSeed(),
+          hasMore: true,
           isLoading: false,
         });
-        // Immediately try next page to break out of duplicate loop
-        if (data.hasMore !== false) {
-          setTimeout(() => {
-            const s = get();
-            if (!s.isLoading && s.hasMore) {
-              s.fetchNextBatch();
-            }
-          }, 0);
-        }
+        setTimeout(() => {
+          const s = get();
+          if (!s.isLoading && s.cards.length === 0) {
+            void s.fetchNextBatch();
+          }
+        }, 0);
         return;
       }
 
@@ -135,8 +156,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
           cards: evictedCards,
           currentIndex: adjustedIndex,
           page: nextPage,
-          // Dynamic hasMore: server flag AND we got real new content
-          hasMore: data.hasMore !== false && uniqueNewCards.length > 0,
+          hasMore: true,
           isLoading: false,
           error: null,
         };
@@ -188,6 +208,7 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       cards: [],
       currentIndex: 0,
       page: 0,
+      feedSeed: createFeedSeed(),
       hasMore: true,
       isLoading: false,
       error: null,

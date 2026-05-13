@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { RepoCard } from "@/lib/types";
 import { InteractionBar } from "./InteractionBar";
+import { DiscussionDrawer } from "./DiscussionDrawer";
 import { useEnrichment } from "@/hooks/useEnrichment";
 import { buildRepoInteractionMetadata } from "@/lib/utils/repo-interaction-metadata";
 
@@ -47,6 +48,23 @@ function formatCount(count: number): string {
   return count.toString();
 }
 
+function hasChinese(text?: string | null): boolean {
+  return Boolean(text && /[\u4e00-\u9fff]/.test(text));
+}
+
+function buildGeneratedSummary(repo: RepoCard): string {
+  const language = repo.language ? `${repo.language} \u9879\u76ee` : "\u5f00\u6e90\u9879\u76ee";
+  const stars = formatCount(repo.starCount);
+  const forks = formatCount(repo.forkCount);
+  const topics = repo.topics.slice(0, 4).map((topic) => `#${topic}`).join(" ");
+
+  return [
+    `${repo.fullName} \u662f\u4e00\u4e2a ${language}\uff0c\u76ee\u524d\u7ea6\u6709 ${stars} stars \u548c ${forks} forks\u3002`,
+    topics ? `\u76f8\u5173\u65b9\u5411\uff1a${topics}` : "",
+    "README \u6458\u8981\u6b63\u5728\u751f\u6210\u4e2d\uff0c\u7a0d\u540e\u4f1a\u81ea\u52a8\u66f4\u65b0\u4e3a\u66f4\u5b8c\u6574\u7684\u4e2d\u6587\u4ecb\u7ecd\u3002",
+  ].filter(Boolean).join("\n");
+}
+
 /** Format a date to relative time (e.g., "3天前", "2小时前") or absolute date */
 function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
@@ -77,6 +95,8 @@ export function RepoCardComponent({
   isActive = true,
   onNotInterested,
 }: RepoCardProps) {
+  const [isDiscussionOpen, setIsDiscussionOpen] = useState(false);
+  const [failedImageUrls, setFailedImageUrls] = useState<Set<string>>(() => new Set());
   const languageColor = repo.language
     ? LANGUAGE_COLORS[repo.language] ?? DEFAULT_COLOR
     : DEFAULT_COLOR;
@@ -86,8 +106,23 @@ export function RepoCardComponent({
     repo.name,
     isActive
   );
-  const displaySummary = cnSummary || repo.readmeSummary || repo.description || "";
+  const generatedSummary = buildGeneratedSummary(repo);
+  const displaySummary = hasChinese(cnSummary)
+    ? cnSummary
+    : generatedSummary;
   const interactionMetadata = buildRepoInteractionMetadata(repo);
+  const displayImageUrl =
+    imageUrl && !failedImageUrls.has(imageUrl) ? imageUrl : null;
+
+  const handleImageError = () => {
+    if (!imageUrl) return;
+    setFailedImageUrls((current) => {
+      if (current.has(imageUrl)) return current;
+      const next = new Set(current);
+      next.add(imageUrl);
+      return next;
+    });
+  };
 
   return (
     <article
@@ -95,21 +130,23 @@ export function RepoCardComponent({
       aria-label={`Repository ${repo.fullName}`}
     >
       {/* === BG Layer 1: Blurred image or gradient === */}
-      {imageUrl ? (
+      {displayImageUrl ? (
         <>
           {/* Blurred background fill */}
           <img
-            src={imageUrl}
+            src={displayImageUrl}
             alt=""
             className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40"
             aria-hidden="true"
+            onError={handleImageError}
           />
           {/* Centered contained image — fills upper half */}
           <div className="absolute inset-x-0 top-0 h-[45%] flex items-center justify-center p-4">
             <img
-              src={imageUrl}
+              src={displayImageUrl}
               alt={repo.name}
               className="max-w-full max-h-full object-contain rounded-lg"
+              onError={handleImageError}
             />
           </div>
           {/* Dark overlay for text */}
@@ -224,9 +261,19 @@ export function RepoCardComponent({
           starCount={repo.starCount}
           ownerAvatarUrl={`https://github.com/${repo.owner}.png?size=96`}
           metadata={interactionMetadata}
+          isActive={isActive}
+          onComment={() => setIsDiscussionOpen(true)}
           onNotInterested={onNotInterested}
         />
       </div>
+
+      <DiscussionDrawer
+        open={isDiscussionOpen}
+        owner={repo.owner}
+        repo={repo.name}
+        repoFullName={repo.fullName}
+        onClose={() => setIsDiscussionOpen(false)}
+      />
     </article>
   );
 }

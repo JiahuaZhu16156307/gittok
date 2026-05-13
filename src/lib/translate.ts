@@ -42,17 +42,27 @@ export async function translateToChinese(
       }),
     });
 
+    if (!res.ok) {
+      throw new Error(`Baidu translate request failed with ${res.status}`);
+    }
+
     const data = await res.json() as {
       trans_result?: Array<{ src: string; dst: string }>;
-      error_code?: number;
+      error_code?: number | string;
+      error_msg?: string;
     };
+
+    if (data.error_code) {
+      throw new Error(`Baidu translate error ${data.error_code}: ${data.error_msg ?? 'unknown error'}`);
+    }
 
     if (data.trans_result && data.trans_result.length > 0) {
       // Join ALL translated segments (API splits by newline/sentence)
       return data.trans_result.map(r => r.dst).join('\n');
     }
-    return text;
-  } catch {
-    return text;
+
+    throw new Error('Baidu translate returned no result');
+  } catch (error) {
+    throw error instanceof Error ? error : new Error('Baidu translate failed');
   }
 }
