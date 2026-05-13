@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractSummary } from '@/lib/readme-parser';
+import { extractFirstImage, extractSummary } from '@/lib/readme-parser';
 
 describe('readme-parser', () => {
   it('skips badges and HTML wrappers before Hono-style README content', () => {
@@ -60,5 +60,21 @@ console.log('skip code')
     expect(summary).toContain('Biome is a fast formatter');
     expect(summary).not.toContain('ci-badge');
     expect(summary).not.toContain('简体中文');
+  });
+
+  it('extracts a raw GitHub demo gif from an HTML image tag', () => {
+    const markdown = `
+## Demos
+
+### GitTok 移动端推荐流
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Mad12345-qw/gittok/main/docs/images/gittok-mobile-feed.gif" alt="GitTok 移动端推荐流 Demo" width="320">
+</p>
+`;
+
+    expect(extractFirstImage(markdown)).toBe(
+      'https://raw.githubusercontent.com/Mad12345-qw/gittok/main/docs/images/gittok-mobile-feed.gif'
+    );
   });
 });

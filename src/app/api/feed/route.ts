@@ -22,6 +22,8 @@ const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 100;
 /** Built-in promo card shown first on the default feed. Shared repo links still take priority. */
 const FEATURED_REPO_FULL_NAME = 'Mad12345-qw/gittok';
+const FEATURED_REPO_DEMO_IMAGE_URL =
+  'https://raw.githubusercontent.com/Mad12345-qw/gittok/main/docs/images/gittok-mobile-feed.gif';
 
 /**
  * Determines whether to use mock data instead of the real feed service.
@@ -191,6 +193,7 @@ function buildFeaturedRepoFallback(): RepoCard {
     isArchived: false,
     isFork: false,
     readmeSummary: 'GitTok 是一个面向中文开发者的 GitHub 仓库发现工具。它把传统搜索改造成沉浸式竖向信息流，支持中文 README 摘要、项目图片、星标关注、分享引流和双评论系统。',
+    readmeImageUrl: FEATURED_REPO_DEMO_IMAGE_URL,
     lastCommitAt: now,
     defaultBranch: 'main',
     updatedAt: now,

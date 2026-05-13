@@ -124,15 +124,15 @@ export function RepoCardComponent({
       ? generatedSummary
       : generatedSummary;
   const interactionMetadata = buildRepoInteractionMetadata(repo);
+  const candidateImageUrl = imageUrl ?? repo.readmeImageUrl ?? null;
   const displayImageUrl =
-    imageUrl && !failedImageUrls.has(imageUrl) ? imageUrl : null;
+    candidateImageUrl && !failedImageUrls.has(candidateImageUrl) ? candidateImageUrl : null;
 
-  const handleImageError = () => {
-    if (!imageUrl) return;
+  const handleImageError = (failedUrl: string) => {
     setFailedImageUrls((current) => {
-      if (current.has(imageUrl)) return current;
+      if (current.has(failedUrl)) return current;
       const next = new Set(current);
-      next.add(imageUrl);
+      next.add(failedUrl);
       return next;
     });
   };
@@ -151,7 +151,7 @@ export function RepoCardComponent({
             alt=""
             className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-40"
             aria-hidden="true"
-            onError={handleImageError}
+            onError={() => handleImageError(displayImageUrl)}
           />
           {/* Centered contained image — fills upper half */}
           <div className="absolute inset-x-0 top-0 h-[45%] flex items-center justify-center p-4">
@@ -159,7 +159,7 @@ export function RepoCardComponent({
               src={displayImageUrl}
               alt={repo.name}
               className="max-w-full max-h-full object-contain rounded-lg"
-              onError={handleImageError}
+              onError={() => handleImageError(displayImageUrl)}
             />
           </div>
           {/* Dark overlay for text */}

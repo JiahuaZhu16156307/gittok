@@ -17,7 +17,7 @@ const LOCAL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const EMPTY_SUMMARY_CACHE_TTL_MS = 5 * 60 * 1000;
 const UNAVAILABLE_CACHE_TTL_MS = 30 * 1000;
 const SUMMARY_MAX_LENGTH = 450;
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 
 type EnrichmentStatus = 'ready' | 'pending' | 'unavailable';
 type EnrichmentResult = {
