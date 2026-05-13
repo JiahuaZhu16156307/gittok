@@ -16,13 +16,7 @@
 ## 移动端推荐流
 
 <p align="center">
-  <a href="docs/videos/gittok-mobile-feed.mp4"><strong>点击播放移动端推荐流视频</strong></a>
-</p>
-
-<p align="center">
-  <video src="docs/videos/gittok-mobile-feed.mp4" controls width="320" title="GitTok 移动端推荐流">
-    你的浏览器不支持直接播放视频，请点击上方链接查看。
-  </video>
+  <img src="docs/images/gittok-mobile-feed.gif" alt="GitTok 移动端推荐流" width="320">
 </p>
 
 > 像刷短视频一样发现 GitHub 优质开源项目。
