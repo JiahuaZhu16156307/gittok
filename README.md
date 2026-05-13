@@ -1,11 +1,29 @@
 # GitTok
 
+## 立即在线体验
+
+<p align="center">
+  <a href="https://gittok.onrender.com/">
+    <img alt="立即打开 GitTok 在线体验" src="https://img.shields.io/badge/立即打开-GitTok%20在线体验-16a34a?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+</p>
+
+<p align="center">
+  <strong>体验地址：</strong>
+  <a href="https://gittok.onrender.com/"><strong>https://gittok.onrender.com/</strong></a>
+</p>
+
+## 产品截图
+
+| 桌面端推荐流 | 移动端推荐流 |
+| --- | --- |
+| ![GitTok 桌面端推荐流](docs/images/gittok-feed-desktop.png) | <img src="docs/images/gittok-feed-mobile.png" alt="GitTok 移动端推荐流" width="260"> |
+
 > 像刷短视频一样发现 GitHub 优质开源项目。
 
 GitTok 是一个面向中文开发者的 GitHub 仓库发现工具。它把传统的列表式 GitHub 搜索，改造成沉浸式竖向信息流：滑动浏览仓库、自动生成中文 README 摘要、查看项目图片、星标/关注作者、分享当前仓库页面，并在站内评论区或官方 Discussions 里参与讨论。
 
 <p align="center">
-  <a href="https://gittok.onrender.com/"><img alt="在线体验" src="https://img.shields.io/badge/在线体验-gittok.onrender.com-111827?style=for-the-badge"></a>
   <a href="https://github.com/Mad12345-qw/gittok"><img alt="GitHub 仓库" src="https://img.shields.io/badge/GitHub-Mad12345--qw%2Fgittok-24292f?style=for-the-badge&logo=github"></a>
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=nextdotjs">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-Ready-3178c6?style=for-the-badge&logo=typescript&logoColor=white">
