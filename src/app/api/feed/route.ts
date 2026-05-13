@@ -20,6 +20,8 @@ import type { FeedResponse, RepoCard } from '@/lib/types';
 const MAX_LIMIT = 100;
 /** Default number of cards per request */
 const DEFAULT_LIMIT = 100;
+/** Built-in promo card shown first on the default feed. Shared repo links still take priority. */
+const FEATURED_REPO_FULL_NAME = 'Mad12345-qw/gittok';
 
 /**
  * Determines whether to use mock data instead of the real feed service.
@@ -73,8 +75,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
     // Use mock data in development or when DB is unavailable
     if (shouldUseMockData()) {
       let response = getMockFeedResponse(cursor, limit, seedParam);
-      if (sharedRepoParam && isFirstPage(cursor)) {
-        response = await prependSharedRepo(response, sharedRepoParam);
+      const pinnedRepo = getPinnedRepoForFirstPage(sharedRepoParam, cursor);
+      if (pinnedRepo) {
+        response = await prependSharedRepo(response, pinnedRepo);
       }
       return NextResponse.json(response);
     }
@@ -93,8 +96,9 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
       limit,
       seed: seedParam,
     });
-    if (sharedRepoParam && isFirstPage(cursor)) {
-      response = await prependSharedRepo(response, sharedRepoParam, userToken);
+    const pinnedRepo = getPinnedRepoForFirstPage(sharedRepoParam, cursor);
+    if (pinnedRepo) {
+      response = await prependSharedRepo(response, pinnedRepo, userToken);
     }
 
     return NextResponse.json(response);
@@ -105,6 +109,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
       { status: 500 }
     );
   }
+}
+
+function getPinnedRepoForFirstPage(sharedRepo: string | null, cursor?: string): string | null {
+  if (!isFirstPage(cursor)) return null;
+  return sharedRepo ?? FEATURED_REPO_FULL_NAME;
 }
 
 function normalizeSeed(value: string | null): string | undefined {
@@ -134,6 +143,10 @@ async function prependSharedRepo(
   repoFullName: string,
   userToken?: string
 ): Promise<FeedResponse> {
+  if (repoFullName === FEATURED_REPO_FULL_NAME) {
+    return prependRepoCard(response, buildFeaturedRepoFallback());
+  }
+
   const [owner, repo] = repoFullName.split('/');
   if (!owner || !repo) return response;
 
@@ -141,22 +154,47 @@ async function prependSharedRepo(
     const { createGitHubClient } = await import('@/services/github-client');
     const githubClient = createGitHubClient(userToken);
     const sharedRepo = (await githubClient.fetchRepository(owner, repo)) as RepoCard;
-    const targetCount = Math.max(response.cards.length, 1);
-    const cards = [
-      sharedRepo,
-      ...response.cards.filter(
-        (card) => card.id !== sharedRepo.id && card.fullName !== sharedRepo.fullName
-      ),
-    ].slice(0, targetCount);
-
-    return {
-      ...response,
-      cards,
-    };
+    return prependRepoCard(response, sharedRepo);
   } catch (error) {
     console.error('[Feed API] Failed to fetch shared repo:', error);
     return response;
   }
+}
+
+function prependRepoCard(response: FeedResponse, repo: RepoCard): FeedResponse {
+  const targetCount = Math.max(response.cards.length, 1);
+  const cards = [
+    repo,
+    ...response.cards.filter(
+      (card) => card.id !== repo.id && card.fullName !== repo.fullName
+    ),
+  ].slice(0, targetCount);
+
+  return {
+    ...response,
+    cards,
+  };
+}
+
+function buildFeaturedRepoFallback(): RepoCard {
+  const now = new Date();
+  return {
+    id: 'featured-gittok',
+    fullName: FEATURED_REPO_FULL_NAME,
+    owner: 'Mad12345-qw',
+    name: 'gittok',
+    description: '像刷短视频一样发现 GitHub 优质开源项目的中文推荐流产品。',
+    language: 'TypeScript',
+    starCount: 0,
+    forkCount: 0,
+    topics: ['github', 'recommendation', 'tiktok-style', 'nextjs', '中文开源'],
+    isArchived: false,
+    isFork: false,
+    readmeSummary: 'GitTok 是一个面向中文开发者的 GitHub 仓库发现工具。它把传统搜索改造成沉浸式竖向信息流，支持中文 README 摘要、项目图片、星标关注、分享引流和双评论系统。',
+    lastCommitAt: now,
+    defaultBranch: 'main',
+    updatedAt: now,
+  };
 }
 
 /**

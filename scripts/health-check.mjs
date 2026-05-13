@@ -159,6 +159,22 @@ try {
 
 try {
   const { res, ms } = await fetchWithTimeout(
+    `${baseUrl}/api/feed?limit=10&page=1&seed=health-featured`,
+    {},
+    8000
+  );
+  const data = await res.json();
+  record(
+    res.ok && data.cards?.[0]?.fullName === "Mad12345-qw/gittok",
+    "default feed pins GitTok as the first project",
+    `${res.status}, ${ms}ms, first=${data.cards?.[0]?.fullName ?? "none"}`
+  );
+} catch (error) {
+  record(false, "default feed pins GitTok as the first project", error.message);
+}
+
+try {
+  const { res, ms } = await fetchWithTimeout(
     `${baseUrl}/api/feed?limit=100&page=1&seed=health-large-batch`,
     {},
     8000
