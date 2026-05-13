@@ -13,13 +13,17 @@
   <a href="https://gittok.onrender.com/"><strong>https://gittok.onrender.com/</strong></a>
 </p>
 
-## 移动端推荐流
+## Demos
+
+### GitTok 移动端推荐流
+
+任务：像刷短视频一样发现 GitHub 优质开源项目。
 
 <p align="center">
-  <img src="docs/images/gittok-mobile-feed.gif" alt="GitTok 移动端推荐流" width="320">
+  <img src="https://raw.githubusercontent.com/Mad12345-qw/gittok/main/docs/images/gittok-mobile-feed.gif" alt="GitTok 移动端推荐流 Demo" width="320">
 </p>
 
-> 像刷短视频一样发现 GitHub 优质开源项目。
+[在线体验 ↗](https://gittok.onrender.com/)
 
 GitTok 是一个面向中文开发者的 GitHub 仓库发现工具。它把传统的列表式 GitHub 搜索，改造成沉浸式竖向信息流：滑动浏览仓库、自动生成中文 README 摘要、查看项目图片、星标/关注作者、分享当前仓库页面，并在站内评论区或官方 Discussions 里参与讨论。
 
