@@ -10,6 +10,22 @@ import { getServerSession } from '@/lib/auth';
 import { extractFirstImage, extractSummary } from '@/lib/readme-parser';
 import { translateToChinese, isChinese } from '@/lib/translate';
 
+const ENRICH_TIMEOUT_MS = 3500;
+const TRANSLATE_TIMEOUT_MS = 1000;
+
+async function withTimeout<T>(
+  work: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await work(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const owner = searchParams.get('owner');
@@ -46,9 +62,13 @@ export async function GET(request: NextRequest) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const readmeRes = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/readme`,
-      { headers }
+    const readmeRes = await withTimeout(
+      (signal) =>
+        fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, {
+          headers,
+          signal,
+        }),
+      ENRICH_TIMEOUT_MS
     );
 
     if (!readmeRes.ok) {
@@ -69,7 +89,10 @@ export async function GET(request: NextRequest) {
 
     // Translate to Chinese if needed
     if (summary && !isChinese(summary)) {
-      summary = await translateToChinese(summary);
+      summary = await withTimeout(
+        (signal) => translateToChinese(summary, { signal }),
+        TRANSLATE_TIMEOUT_MS
+      );
     }
 
     const result = { imageUrl, summary: summary || null };

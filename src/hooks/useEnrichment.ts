@@ -14,14 +14,23 @@ const cache = new Map<string, EnrichmentData>();
  * Hook to lazy-load README image + Chinese summary for a repo.
  * Only fetches when the component is mounted (visible card).
  */
-export function useEnrichment(owner: string, repo: string): EnrichmentData & { isLoading: boolean } {
+export function useEnrichment(
+  owner: string,
+  repo: string,
+  enabled = true
+): EnrichmentData & { isLoading: boolean } {
   const key = `${owner}/${repo}`;
   const [data, setData] = useState<EnrichmentData>(
     cache.get(key) ?? { imageUrl: null, summary: null }
   );
-  const [isLoading, setIsLoading] = useState(!cache.has(key));
+  const [isLoading, setIsLoading] = useState(enabled && !cache.has(key));
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     if (cache.has(key)) {
       setData(cache.get(key)!);
       setIsLoading(false);
@@ -50,7 +59,7 @@ export function useEnrichment(owner: string, repo: string): EnrichmentData & { i
 
     fetchEnrichment();
     return () => { cancelled = true; };
-  }, [key, owner, repo]);
+  }, [enabled, key, owner, repo]);
 
   return { ...data, isLoading };
 }

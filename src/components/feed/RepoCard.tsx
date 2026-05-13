@@ -4,6 +4,7 @@ import { useRef } from "react";
 import type { RepoCard } from "@/lib/types";
 import { InteractionBar } from "./InteractionBar";
 import { useEnrichment } from "@/hooks/useEnrichment";
+import { buildRepoInteractionMetadata } from "@/lib/utils/repo-interaction-metadata";
 
 /**
  * Color map for common programming languages.
@@ -66,16 +67,27 @@ function formatDate(date: Date | string): string {
 interface RepoCardProps {
   repo: RepoCard;
   recommendationReason?: string;
+  isActive?: boolean;
   onNotInterested?: () => void;
 }
 
-export function RepoCardComponent({ repo, recommendationReason, onNotInterested }: RepoCardProps) {
+export function RepoCardComponent({
+  repo,
+  recommendationReason,
+  isActive = true,
+  onNotInterested,
+}: RepoCardProps) {
   const languageColor = repo.language
     ? LANGUAGE_COLORS[repo.language] ?? DEFAULT_COLOR
     : DEFAULT_COLOR;
 
-  const { imageUrl, summary: cnSummary } = useEnrichment(repo.owner, repo.name);
+  const { imageUrl, summary: cnSummary } = useEnrichment(
+    repo.owner,
+    repo.name,
+    isActive
+  );
   const displaySummary = cnSummary || repo.readmeSummary || repo.description || "";
+  const interactionMetadata = buildRepoInteractionMetadata(repo);
 
   return (
     <article
@@ -211,6 +223,7 @@ export function RepoCardComponent({ repo, recommendationReason, onNotInterested 
           owner={repo.owner}
           starCount={repo.starCount}
           ownerAvatarUrl={`https://github.com/${repo.owner}.png?size=96`}
+          metadata={interactionMetadata}
           onNotInterested={onNotInterested}
         />
       </div>

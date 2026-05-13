@@ -14,7 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getMockFeedResponse } from '@/services/mock-feed-data';
 import { createFeedService } from '@/services/feed-service';
-import type { FeedResponse } from '@/lib/types';
+import type { FeedResponse, RepoCard } from '@/lib/types';
 
 /** Maximum allowed limit per request */
 const MAX_LIMIT = 50;
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
     const pageParam = searchParams.get('page');
     const cursorParam = searchParams.get('cursor') ?? undefined;
     const limitParam = searchParams.get('limit');
+    const sharedRepoParam = normalizeSharedRepo(searchParams.get('repo'));
 
     // Validate and parse limit
     let limit = DEFAULT_LIMIT;
@@ -70,7 +71,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
 
     // Use mock data in development or when DB is unavailable
     if (shouldUseMockData()) {
-      const response = getMockFeedResponse(cursor, limit);
+      let response = getMockFeedResponse(cursor, limit);
+      if (sharedRepoParam && isFirstPage(cursor)) {
+        response = await prependSharedRepo(response, sharedRepoParam);
+      }
       return NextResponse.json(response);
     }
 
@@ -81,12 +85,15 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
     const userToken = (user as any)?.githubToken;
 
     const feedService = await createRealFeedService(userToken);
-    const response = await feedService.getNextBatch({
+    let response = await feedService.getNextBatch({
       userId,
       sessionId,
       cursor,
       limit,
     });
+    if (sharedRepoParam && isFirstPage(cursor)) {
+      response = await prependSharedRepo(response, sharedRepoParam, userToken);
+    }
 
     return NextResponse.json(response);
   } catch (error) {
@@ -95,6 +102,52 @@ export async function GET(request: NextRequest): Promise<NextResponse<FeedRespon
       { error: 'Internal server error while fetching feed.' },
       { status: 500 }
     );
+  }
+}
+
+function normalizeSharedRepo(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  return /^[^/\s]+\/[^/\s]+$/.test(trimmed) ? trimmed : null;
+}
+
+function isFirstPage(cursor?: string): boolean {
+  if (!cursor) return true;
+  try {
+    const parsed = JSON.parse(cursor) as { offset?: unknown };
+    return parsed.offset === 0;
+  } catch {
+    return false;
+  }
+}
+
+async function prependSharedRepo(
+  response: FeedResponse,
+  repoFullName: string,
+  userToken?: string
+): Promise<FeedResponse> {
+  const [owner, repo] = repoFullName.split('/');
+  if (!owner || !repo) return response;
+
+  try {
+    const { createGitHubClient } = await import('@/services/github-client');
+    const githubClient = createGitHubClient(userToken);
+    const sharedRepo = (await githubClient.fetchRepository(owner, repo)) as RepoCard;
+    const targetCount = Math.max(response.cards.length, 1);
+    const cards = [
+      sharedRepo,
+      ...response.cards.filter(
+        (card) => card.id !== sharedRepo.id && card.fullName !== sharedRepo.fullName
+      ),
+    ].slice(0, targetCount);
+
+    return {
+      ...response,
+      cards,
+    };
+  } catch (error) {
+    console.error('[Feed API] Failed to fetch shared repo:', error);
+    return response;
   }
 }
 

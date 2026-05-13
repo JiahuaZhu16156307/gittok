@@ -108,7 +108,7 @@ export function createFeedService(deps: FeedServiceDeps): IFeedService {
           new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         const searchQueries = [
-          'stars:>10000',
+          'stars:>1000',
           'stars:>5000',
           'stars:>1000',
           'stars:500..5000',

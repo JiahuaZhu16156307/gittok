@@ -2,20 +2,20 @@
  * Dwell time event classification utility.
  *
  * Classifies user interaction events based on how long they stayed on a card:
- * - 'view' if dwell time >= 1000ms (meaningful engagement)
- * - 'quick_skip' if dwell time < 1000ms (weak negative signal)
+ * - 'view' if dwell time >= 3000ms (meaningful engagement)
+ * - 'quick_skip' if dwell time < 3000ms (weak negative signal)
  */
 
 import type { CreateInteractionRequest } from '@/lib/types/interaction';
 
 /** Threshold in milliseconds that separates a 'view' from a 'quick_skip' */
-export const DWELL_TIME_THRESHOLD_MS = 1000;
+export const DWELL_TIME_THRESHOLD_MS = 3000;
 
 /**
  * Classify a dwell time value into an interaction type.
  *
  * @param dwellTimeMs - The dwell time in milliseconds (non-negative)
- * @returns 'view' if dwellTimeMs >= 1000, 'quick_skip' if < 1000
+ * @returns 'view' if dwellTimeMs >= 3000, 'quick_skip' if < 3000
  */
 export function classifyDwellTime(dwellTimeMs: number): 'view' | 'quick_skip' {
   return dwellTimeMs >= DWELL_TIME_THRESHOLD_MS ? 'view' : 'quick_skip';
@@ -37,8 +37,9 @@ export function createDwellTimeEvent(
 ): CreateInteractionRequest {
   return {
     repoId,
+    repoFullName,
     type: classifyDwellTime(dwellTimeMs),
     dwellTimeMs,
-    metadata: { repoFullName },
+    metadata: { fullName: repoFullName },
   };
 }

@@ -105,7 +105,10 @@ export function TrendingFeed() {
           data-index={index}
           className="h-full w-full snap-center shrink-0 relative"
         >
-          <RepoCardComponent repo={card} />
+          <RepoCardComponent
+            repo={card}
+            isActive={Math.abs(index - currentIndex) <= 1}
+          />
         </div>
       ))}
 

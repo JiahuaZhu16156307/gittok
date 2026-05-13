@@ -51,6 +51,12 @@ function evictLRU(
   return { cards: newCards, currentIndex: newIndex };
 }
 
+function getSharedRepoParam(): string | null {
+  if (typeof window === "undefined") return null;
+  const repo = new URLSearchParams(window.location.search).get("repo");
+  return repo && /^[^/\s]+\/[^/\s]+$/.test(repo) ? repo : null;
+}
+
 export const useFeedStore = create<FeedState>((set, get) => ({
   cards: [],
   currentIndex: 0,
@@ -76,6 +82,10 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         limit: String(BATCH_SIZE),
         page: String(nextPage),
       });
+      const sharedRepo = nextPage === 1 ? getSharedRepoParam() : null;
+      if (sharedRepo) {
+        params.set("repo", sharedRepo);
+      }
 
       const response = await fetch(`/api/feed?${params.toString()}`);
       if (!response.ok) {

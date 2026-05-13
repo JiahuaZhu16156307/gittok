@@ -31,12 +31,35 @@ function formatCount(count: number): string {
   return count.toString();
 }
 
+const PUBLIC_APP_URL = "https://gittok.onrender.com/";
+
+function isLocalPreviewHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname.startsWith("192.168.") ||
+    hostname.startsWith("10.") ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+  );
+}
+
+function buildShareUrl(repoFullName: string): string {
+  const base =
+    typeof window !== "undefined" && !isLocalPreviewHost(window.location.hostname)
+      ? window.location.origin
+      : PUBLIC_APP_URL;
+  const url = new URL("/", base);
+  url.searchParams.set("repo", repoFullName);
+  return url.toString();
+}
+
 interface InteractionBarProps {
   repoId: string;
   repoFullName: string;
   owner: string;
   starCount: number;
   ownerAvatarUrl?: string;
+  metadata?: Record<string, unknown>;
   onNotInterested?: () => void;
 }
 
@@ -46,6 +69,7 @@ export function InteractionBar({
   owner,
   starCount,
   ownerAvatarUrl,
+  metadata,
   onNotInterested,
 }: InteractionBarProps) {
   const { isAuthenticated } = useAuthStore();
@@ -78,7 +102,7 @@ export function InteractionBar({
     }
   }, [isAuthenticated, owner, checkFollowStatus]);
 
-  const metadata = { fullName: repoFullName };
+  const interactionMetadata = metadata ?? { fullName: repoFullName };
 
   const handleStar = () => {
     if (!isAuthenticated) return;
@@ -91,8 +115,26 @@ export function InteractionBar({
   };
 
   const handleNotInterested = () => {
-    markNotInterested(repoId, metadata);
+    markNotInterested(repoId, interactionMetadata);
     onNotInterested?.();
+  };
+
+  const handleComment = () => {
+    const currentUrl =
+      typeof window !== "undefined" ? window.location.href : "https://gittok.onrender.com/";
+    const title = `关于 ${repoFullName} 的 GitTok 反馈`;
+    const body = [
+      `我在 GitTok 看到仓库：${repoFullName}`,
+      "",
+      `页面：${currentUrl}`,
+      "",
+      "我的建议：",
+    ].join("\n");
+    const discussionUrl = new URL("https://github.com/Mad12345-qw/gittok/discussions/new");
+    discussionUrl.searchParams.set("category", "general");
+    discussionUrl.searchParams.set("title", title);
+    discussionUrl.searchParams.set("body", body);
+    window.open(discussionUrl.toString(), "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -169,14 +211,18 @@ export function InteractionBar({
       {/* Share */}
       <InteractionButton
         onClick={async () => {
-          const url = `https://github.com/${repoFullName}`;
+          const url = buildShareUrl(repoFullName);
           // Try native share first (works on mobile even on some HTTP contexts)
           try {
-            await navigator.share({ title: `${repoFullName} - GitHub`, text: `看看这个 GitHub 仓库：${repoFullName}`, url });
+            await navigator.share({
+              title: `${repoFullName} - GitTok`,
+              text: `我在 GitTok 发现了 ${repoFullName}，来这里一起刷 GitHub 仓库`,
+              url,
+            });
             return;
-          } catch (e: any) {
+          } catch (e: unknown) {
             // If AbortError = user cancelled, that's fine
-            if (e?.name === "AbortError") return;
+            if (e instanceof Error && e.name === "AbortError") return;
             // Otherwise fall through to copy
           }
           // Fallback: copy to clipboard
@@ -204,6 +250,20 @@ export function InteractionBar({
         icon={
           <svg viewBox="0 0 48 48" fill="currentColor" className="w-7 h-7">
             <path d="M28 6v6.5c-9.8.4-17 4.7-20.3 13.5-1.1 3-.6 5.7.3 5.2 2.5-1.5 6.4-3.7 11-4.5 2-.3 5.5-.5 9-.2V33l14-13.5L28 6z" />
+          </svg>
+        }
+      />
+
+      {/* Comment / feedback */}
+      <InteractionButton
+        onClick={handleComment}
+        active={false}
+        disabled={false}
+        activeColor=""
+        label="评论"
+        icon={
+          <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+            <path d="M4 4h16v12H7.17L4 19.17V4zm2 2v8.34L6.34 14H18V6H6zm2 3h8v2H8V9zm0 3h5v2H8v-2z" />
           </svg>
         }
       />

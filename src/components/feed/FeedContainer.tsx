@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback } from "react";
 import { useFeedStore } from "@/stores/feed-store";
 import { RepoCardComponent } from "./RepoCard";
 import { CardSkeleton } from "./CardSkeleton";
+import { buildRepoInteractionMetadata } from "@/lib/utils/repo-interaction-metadata";
+import { classifyDwellTime } from "@/lib/utils/dwell-time-classifier";
 
 /**
  * FeedContainer manages the TikTok-style vertical swipe feed using
@@ -34,6 +36,7 @@ export function FeedContainer() {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const dwellStartRef = useRef<number>(Date.now());
   const lastIndexRef = useRef<number>(0);
+  const recordedDwellRef = useRef<Set<string>>(new Set());
 
   // --- Load initial batch ---
   useEffect(() => {
@@ -43,20 +46,60 @@ export function FeedContainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const recordDwellEvent = useCallback((index: number, dwellTimeMs: number) => {
+    const repo = cards[index];
+    if (!repo || dwellTimeMs <= 0 || dwellTimeMs >= 300_000) return;
+
+    const type = classifyDwellTime(dwellTimeMs);
+    const key = `${repo.id}:${index}:${type}`;
+    if (recordedDwellRef.current.has(key)) return;
+    recordedDwellRef.current.add(key);
+
+    fetch("/api/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        repoId: repo.id,
+        repoFullName: repo.fullName,
+        type,
+        dwellTimeMs,
+        metadata: buildRepoInteractionMetadata(repo),
+      }),
+    }).catch(() => {
+      recordedDwellRef.current.delete(key);
+    });
+  }, [cards]);
+
   // --- Track dwell time on index change ---
   useEffect(() => {
     const now = Date.now();
     const dwell = now - dwellStartRef.current;
-    if (lastIndexRef.current !== currentIndex && dwell > 0 && dwell < 300_000) {
-      // Classification would be done by dwell-time-classifier
-      // For now just log; later this wires into the interaction store
-      console.debug(
-        `[FeedContainer] Card ${lastIndexRef.current} dwell: ${dwell}ms`
-      );
+    if (lastIndexRef.current !== currentIndex) {
+      recordDwellEvent(lastIndexRef.current, dwell);
     }
     dwellStartRef.current = now;
     lastIndexRef.current = currentIndex;
-  }, [currentIndex]);
+  }, [currentIndex, recordDwellEvent]);
+
+  useEffect(() => {
+    const flushCurrentDwell = () => {
+      recordDwellEvent(lastIndexRef.current, Date.now() - dwellStartRef.current);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushCurrentDwell();
+      }
+    };
+
+    window.addEventListener("beforeunload", flushCurrentDwell);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("beforeunload", flushCurrentDwell);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [recordDwellEvent]);
 
   // --- IntersectionObserver: detect which card is centered ---
   useEffect(() => {
@@ -189,7 +232,11 @@ export function FeedContainer() {
           data-index={index}
           className="h-full w-full snap-center shrink-0 relative"
         >
-          <RepoCardComponent repo={card} onNotInterested={goNext} />
+          <RepoCardComponent
+            repo={card}
+            isActive={Math.abs(index - currentIndex) <= 1}
+            onNotInterested={goNext}
+          />
         </div>
       ))}
 

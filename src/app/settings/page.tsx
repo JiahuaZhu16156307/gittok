@@ -257,6 +257,20 @@ export default function SettingsPage() {
         >
           ← 返回推荐
         </Link>
+
+        <section className="pt-4 border-t border-white/10 text-center space-y-3">
+          <p className="text-xs leading-relaxed text-white/50">
+            欢迎访问并留下宝贵建议
+          </p>
+          <a
+            href="https://github.com/Mad12345-qw/gittok"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-white/10 bg-white/10 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-white/15"
+          >
+            本项目作者仓库
+          </a>
+        </section>
       </div>
     </main>
   );

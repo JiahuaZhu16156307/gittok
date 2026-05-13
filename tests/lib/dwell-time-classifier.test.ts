@@ -7,30 +7,30 @@ import {
 
 describe('dwell-time-classifier', () => {
   describe('DWELL_TIME_THRESHOLD_MS', () => {
-    it('should be 1000ms', () => {
-      expect(DWELL_TIME_THRESHOLD_MS).toBe(1000);
+    it('should be 3000ms', () => {
+      expect(DWELL_TIME_THRESHOLD_MS).toBe(3000);
     });
   });
 
   describe('classifyDwellTime', () => {
-    it('returns "view" for dwellTime >= 1000', () => {
-      expect(classifyDwellTime(1500)).toBe('view');
+    it('returns "view" for dwellTime >= 3000', () => {
+      expect(classifyDwellTime(3000)).toBe('view');
       expect(classifyDwellTime(5000)).toBe('view');
       expect(classifyDwellTime(60000)).toBe('view');
     });
 
-    it('returns "quick_skip" for dwellTime < 1000', () => {
+    it('returns "quick_skip" for dwellTime < 3000', () => {
       expect(classifyDwellTime(0)).toBe('quick_skip');
       expect(classifyDwellTime(500)).toBe('quick_skip');
-      expect(classifyDwellTime(800)).toBe('quick_skip');
+      expect(classifyDwellTime(2999)).toBe('quick_skip');
     });
 
-    it('boundary: exactly 1000ms returns "view"', () => {
-      expect(classifyDwellTime(1000)).toBe('view');
+    it('boundary: exactly 3000ms returns "view"', () => {
+      expect(classifyDwellTime(3000)).toBe('view');
     });
 
-    it('boundary: 999ms returns "quick_skip"', () => {
-      expect(classifyDwellTime(999)).toBe('quick_skip');
+    it('boundary: 2999ms returns "quick_skip"', () => {
+      expect(classifyDwellTime(2999)).toBe('quick_skip');
     });
   });
 
@@ -40,16 +40,16 @@ describe('dwell-time-classifier', () => {
       expect(event.dwellTimeMs).toBe(2500);
     });
 
-    it('classifies as "view" when dwellTime >= 1000', () => {
-      const event = createDwellTimeEvent('repo-123', 'owner/repo', 1000);
+    it('classifies as "view" when dwellTime >= 3000', () => {
+      const event = createDwellTimeEvent('repo-123', 'owner/repo', 3000);
       expect(event.type).toBe('view');
-      expect(event.dwellTimeMs).toBe(1000);
+      expect(event.dwellTimeMs).toBe(3000);
     });
 
-    it('classifies as "quick_skip" when dwellTime < 1000', () => {
-      const event = createDwellTimeEvent('repo-123', 'owner/repo', 400);
+    it('classifies as "quick_skip" when dwellTime < 3000', () => {
+      const event = createDwellTimeEvent('repo-123', 'owner/repo', 2999);
       expect(event.type).toBe('quick_skip');
-      expect(event.dwellTimeMs).toBe(400);
+      expect(event.dwellTimeMs).toBe(2999);
     });
 
     it('includes repoId in the event', () => {
@@ -57,9 +57,10 @@ describe('dwell-time-classifier', () => {
       expect(event.repoId).toBe('repo-456');
     });
 
-    it('includes repoFullName in metadata', () => {
+    it('includes repoFullName and fullName metadata', () => {
       const event = createDwellTimeEvent('repo-789', 'org/lib', 1200);
-      expect(event.metadata).toEqual({ repoFullName: 'org/lib' });
+      expect(event.repoFullName).toBe('org/lib');
+      expect(event.metadata).toEqual({ fullName: 'org/lib' });
     });
   });
 });

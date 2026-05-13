@@ -78,7 +78,7 @@ export function adjustWeight(current: number, delta: number): number {
  *
  * Returns a NEW UserProfile object (immutable update).
  *
- * For positive events (like, favorite, follow, open_external, view with dwell >= 1000ms):
+ * For positive events (like, favorite, follow, open_external, view with dwell >= 3000ms):
  *   - Increases weights by POSITIVE_LEARNING_RATE (α = 0.1)
  *
  * For negative events:

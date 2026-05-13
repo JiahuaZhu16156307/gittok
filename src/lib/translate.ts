@@ -16,7 +16,10 @@ export function isChinese(text: string): boolean {
 }
 
 /** Translate text to Chinese using Baidu AI Text Translate API */
-export async function translateToChinese(text: string): Promise<string> {
+export async function translateToChinese(
+  text: string,
+  options: { signal?: AbortSignal } = {}
+): Promise<string> {
   if (!text || text.length < 5) return text;
   if (isChinese(text)) return text;
 
@@ -26,6 +29,7 @@ export async function translateToChinese(text: string): Promise<string> {
 
     const res = await fetch('https://fanyi-api.baidu.com/ait/api/aiTextTranslate', {
       method: 'POST',
+      signal: options.signal,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${BAIDU_API_KEY}`,

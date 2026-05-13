@@ -120,9 +120,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true, mock: true }, { status: 200 });
   }
 
+  if (!user) {
+    return NextResponse.json(
+      { success: true, anonymous: true },
+      { status: 200 }
+    );
+  }
+
   // Real mode: delegate to the interaction service
   try {
-    const userId = user?.id ?? 'anonymous';
+    const userId = user.id;
     const repoFullName = resolveRepoFullName(body);
     const { recordInteraction } = await import('@/services/interaction-service');
 

@@ -9,12 +9,21 @@ import { NextRequest, NextResponse } from "next/server";
 import type { RepoCard } from "@/lib/types";
 
 const TRENDING_URL = "https://github.com/trending?since=daily";
+const TRENDING_TIMEOUT_MS = 3500;
+const TRENDING_CACHE_TTL_MS = 30 * 60 * 1000;
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: NextRequest) {
+const globalForTrending = globalThis as unknown as {
+  trendingCache?: { cards: RepoCard[]; cachedAt: number };
+};
+
+async function fetchTrendingHTML(): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TRENDING_TIMEOUT_MS);
   try {
     const res = await fetch(TRENDING_URL, {
+      signal: controller.signal,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 GitTok/1.0",
@@ -24,14 +33,27 @@ export async function GET(_request: NextRequest) {
     });
 
     if (!res.ok) {
-      return NextResponse.json(
-        { cards: [], hasMore: false, error: `GitHub Trending returned ${res.status}` },
-        { status: 502 }
-      );
+      throw new Error(`GitHub Trending returned ${res.status}`);
     }
 
-    const html = await res.text();
+    return res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function getFreshCachedTrending(): RepoCard[] | null {
+  const cached = globalForTrending.trendingCache;
+  if (!cached) return null;
+  if (Date.now() - cached.cachedAt > TRENDING_CACHE_TTL_MS) return null;
+  return cached.cards;
+}
+
+export async function GET(_request: NextRequest) {
+  try {
+    const html = await fetchTrendingHTML();
     const cards = parseTrendingHTML(html);
+    globalForTrending.trendingCache = { cards, cachedAt: Date.now() };
 
     return NextResponse.json({
       cards,
@@ -39,9 +61,18 @@ export async function GET(_request: NextRequest) {
     });
   } catch (err) {
     console.error("[Trending API] Error:", err);
+    const cached = getFreshCachedTrending();
+    if (cached) {
+      return NextResponse.json({
+        cards: cached,
+        hasMore: false,
+        stale: true,
+      });
+    }
+
     return NextResponse.json(
       { cards: [], hasMore: false, error: "Failed to fetch GitHub Trending" },
-      { status: 500 }
+      { status: 504 }
     );
   }
 }
