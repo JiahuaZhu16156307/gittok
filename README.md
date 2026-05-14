@@ -3,7 +3,7 @@
 ## 立即在线体验
 
 <p align="center">
-  <a href="https://gittok.onrender.com/">
+  <a href="https://gittok-main.vercel.app/">
     <img alt="立即打开 GitTok 在线体验" src="https://img.shields.io/badge/立即打开-GitTok%20在线体验-16a34a?style=for-the-badge&logo=github&logoColor=white">
   </a>
 </p>
@@ -23,7 +23,7 @@
   <img src="https://raw.githubusercontent.com/Mad12345-qw/gittok/main/docs/images/gittok-mobile-feed.gif" alt="GitTok 移动端推荐流 Demo" width="320">
 </p>
 
-[在线体验 ↗](https://gittok.onrender.com/)
+[在线体验 ↗](https://gittok-main.vercel.app/)
 
 GitTok 是一个面向中文开发者的 GitHub 仓库发现工具。它把传统的列表式 GitHub 搜索，改造成沉浸式竖向信息流：滑动浏览仓库、自动生成中文 README 摘要、查看项目图片、星标/关注作者、分享当前仓库页面，并在站内评论区或官方 Discussions 里参与讨论。
 
