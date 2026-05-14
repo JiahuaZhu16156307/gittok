@@ -10,7 +10,7 @@
 
 <p align="center">
   <strong>体验地址：</strong>
-  <a href="https://gittok.onrender.com/"><strong>https://gittok.onrender.com/</strong></a>
+  <a href="https://gittok-main.vercel.app/"><strong>https://gittok.onrender.com/</strong></a>
 </p>
 
 ## Demos
